@@ -84,7 +84,7 @@ if __name__ == "__main__":
     tokenizer = tiktoken.get_encoding("gpt2")
 
     dataloader = create_dataloader_v1(
-        raw_text, tokenizer, batch_size=8, max_length=8, stride=2, shuffle=False, 
+        raw_text, tokenizer, batch_size=8, max_length=4, stride=4, shuffle=False, 
         )
     
     # 将dataloader转换为一个迭代器，这样我们就可以逐批次地从中提取数据
@@ -101,3 +101,8 @@ if __name__ == "__main__":
         print(f"  Input:  '{input_text}'")
         print(f"  Target: '{target_text}'")
         print("-" * 20)
+    
+    inputs, targets = next(data_iter)
+    print("INPUTS:", inputs)
+    print("TARGETS:", targets)
+    
