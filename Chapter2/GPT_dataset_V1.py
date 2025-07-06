@@ -82,10 +82,14 @@ if __name__ == "__main__":
         raw_text = f.read()
 
     tokenizer = tiktoken.get_encoding("gpt2")
+    max_length =4
 
     dataloader = create_dataloader_v1(
-        raw_text, tokenizer, batch_size=8, max_length=4, stride=4, shuffle=False, 
+        raw_text, tokenizer, batch_size=8, max_length=max_length, stride=max_length, shuffle=False, 
         )
+    
+    vocab_size = 50257
+    output_dim = 256
     
     # 将dataloader转换为一个迭代器，这样我们就可以逐批次地从中提取数据
     data_iter = iter(dataloader)
@@ -94,15 +98,26 @@ if __name__ == "__main__":
 
     print("--- First Batch ---")
     input_ids, target_ids = first_batch
-    for i in range(input_ids.shape[0]): # 遍历批次中的每个样本
-        input_text = tokenizer.decode(input_ids[i].tolist())
-        target_text = tokenizer.decode(target_ids[i].tolist())
-        print(f"Sample {i+1}:")
-        print(f"  Input:  '{input_text}'")
-        print(f"  Target: '{target_text}'")
-        print("-" * 20)
-    
     inputs, targets = next(data_iter)
     print("INPUTS:", inputs)
+    print("INPUTS shape:", inputs.shape)
     print("TARGETS:", targets)
+
+    torch.manual_seed(123)
+    embedding_layer = torch.nn.Embedding(vocab_size, output_dim)    #查找运算
+    embedding = torch.nn.Embedding(vocab_size, output_dim)
+
+    token_embeddings = embedding_layer(inputs)
+    print("TOKEN EMBEDDINGS:", token_embeddings)
+    print("TOKEN EMBEDDINGS shape:", token_embeddings.shape) #torch.Size([8, 4, 256])
+
+    context_length = max_length
+    pos_embedding_layer = torch.nn.Embedding(context_length, output_dim)
+    pos_embeddings = pos_embedding_layer(torch.arange(context_length)) #提供0到context_length-1的序列，输出对应位置的编码
+    print("POS EMBEDDINGS shape:", pos_embeddings.shape) #位置编码
+
+    input_embeddings = token_embeddings + pos_embeddings #位置编码和token编码相加
+    print("INPUT EMBEDDINGS shape:", input_embeddings.shape)
+    
+
     
