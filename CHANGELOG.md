@@ -4,6 +4,14 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，并且本项目遵循[语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [0.1.1] - 2025-07-06
+
+### 更改 (Changed)
+- `Chapter2/GPT_dataset_V1.py`: 优化了代码结构，将测试逻辑封装到 `test_dataloader_functionality` 函数中，并增加了详细注释。
+
+### 新增 (Added)
+- `Chapter2/token_embeddings.py`: 新增文件，用于演示 PyTorch 嵌入层的使用。
+
 ## [0.1.0] - 2025-07-04
 
 ### 新增 (Added)
