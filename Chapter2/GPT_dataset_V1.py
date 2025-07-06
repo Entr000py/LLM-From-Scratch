@@ -77,47 +77,57 @@ def create_dataloader_v1(txt, tokenizer, max_length=256, stride=128, batch_size=
     )
     return dataloader
 
-if __name__ == "__main__":
+def test_dataloader_functionality():
+    """
+    测试GPTDataset和create_dataloader_v1的功能。
+    包括数据加载、批次处理以及嵌入层操作的示例。
+    """
+    # 1. 加载原始文本数据
     with open("the-verdict.txt", "r", encoding="utf-8") as f:
         raw_text = f.read()
 
+    # 2. 初始化分词器和数据加载参数
     tokenizer = tiktoken.get_encoding("gpt2")
-    max_length =4
+    max_length = 4  # 定义每个序列的最大长度
 
+    # 3. 创建数据加载器
     dataloader = create_dataloader_v1(
         raw_text, tokenizer, batch_size=8, max_length=max_length, stride=max_length, shuffle=False, 
-        )
+    )
     
-    vocab_size = 50257
-    output_dim = 256
+    # 4. 定义嵌入层参数
+    vocab_size = 50257  # GPT-2分词器的词汇表大小
+    output_dim = 256    # 嵌入向量的维度
     
-    # 将dataloader转换为一个迭代器，这样我们就可以逐批次地从中提取数据
+    # 5. 从数据加载器中获取第一个批次的数据
     data_iter = iter(dataloader)
-    # 从迭代器中获取下一个项目，也就是第一个批次的数据
-    first_batch = next(data_iter)
+    first_batch_inputs, first_batch_targets = next(data_iter)
 
     print("--- First Batch ---")
-    input_ids, target_ids = first_batch
-    inputs, targets = next(data_iter)
-    print("INPUTS:", inputs)
-    print("INPUTS shape:", inputs.shape)
-    print("TARGETS:", targets)
+    print("INPUTS:", first_batch_inputs)
+    print("INPUTS shape:", first_batch_inputs.shape)
+    print("TARGETS:", first_batch_targets)
 
-    torch.manual_seed(123)
-    embedding_layer = torch.nn.Embedding(vocab_size, output_dim)    #查找运算
-    embedding = torch.nn.Embedding(vocab_size, output_dim)
+    # 6. 示例：使用嵌入层处理输入
+    torch.manual_seed(123) # 设置随机种子以保证结果可复现
 
-    token_embeddings = embedding_layer(inputs)
+    # Token嵌入层：将token ID转换为密集向量
+    token_embedding_layer = torch.nn.Embedding(vocab_size, output_dim)
+    token_embeddings = token_embedding_layer(first_batch_inputs)
     print("TOKEN EMBEDDINGS:", token_embeddings)
-    print("TOKEN EMBEDDINGS shape:", token_embeddings.shape) #torch.Size([8, 4, 256])
+    print("TOKEN EMBEDDINGS shape:", token_embeddings.shape) # 预期形状: [batch_size, max_length, output_dim]
 
+    # 位置嵌入层：为序列中的每个位置生成一个嵌入向量
     context_length = max_length
-    pos_embedding_layer = torch.nn.Embedding(context_length, output_dim)
-    pos_embeddings = pos_embedding_layer(torch.arange(context_length)) #提供0到context_length-1的序列，输出对应位置的编码
-    print("POS EMBEDDINGS shape:", pos_embeddings.shape) #位置编码
+    position_embedding_layer = torch.nn.Embedding(context_length, output_dim)
+    # 为0到max_length-1的每个位置生成位置编码
+    position_embeddings = position_embedding_layer(torch.arange(context_length)) 
+    print("POS EMBEDDINGS shape:", position_embeddings.shape) # 预期形状: [max_length, output_dim]
 
-    input_embeddings = token_embeddings + pos_embeddings #位置编码和token编码相加
-    print("INPUT EMBEDDINGS shape:", input_embeddings.shape)
-    
+    # 将token嵌入和位置嵌入相加，得到最终的输入嵌入
+    # 这允许模型同时考虑token的语义信息和它们在序列中的位置信息
+    input_embeddings = token_embeddings + position_embeddings 
+    print("INPUT EMBEDDINGS shape:", input_embeddings.shape) # 预期形状: [batch_size, max_length, output_dim]
 
-    
+if __name__ == "__main__":
+    test_dataloader_functionality()
