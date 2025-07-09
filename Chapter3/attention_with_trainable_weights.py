@@ -19,12 +19,12 @@ class self_attention_v1(nn.Module):
     return context_vec
 
 class SelfAttention_v2(nn.Module):
-  def __init__(self, d_in, d_out):
+  def __init__(self, d_in, d_out, qkv_bias=False):
     super().__init__()
     self.d_out = d_out
-    self.w_query = nn.Parameter(torch.randn(d_in, d_out))
-    self.w_key = nn.Parameter(torch.randn(d_in, d_out))
-    self.w_value = nn.Parameter(torch.randn(d_in, d_out))
+    self.w_query = nn.Linear(d_in, d_out, bias=qkv_bias)
+    self.w_key = nn.Linear(d_in, d_out, bias=qkv_bias)
+    self.w_value = nn.Linear(d_in, d_out, bias=qkv_bias)
 
   def forward(self, x):
     keys = x @ self.w_key
