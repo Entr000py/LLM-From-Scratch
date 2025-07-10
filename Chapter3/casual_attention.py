@@ -2,6 +2,33 @@ import torch
 import torch.nn as nn
 from attention_with_trainable_weights import SelfAttention_v2
 
+
+class CasualAttention(nn.Module):
+  mask: torch.Tensor
+  def __init__(self, d_in, d_out, context_length, dropout, qkv_bias=False):
+    super().__init__()
+    self.d_out = d_out
+    self.w_query = nn.Linear(d_in, d_out, bias=qkv_bias)
+    self.w_key = nn.Linear(d_in, d_out, bias=qkv_bias)
+    self.w_value = nn.Linear(d_in, d_out, bias=qkv_bias)
+    self.dropout = nn.Dropout(dropout)
+    self.register_buffer(
+      "mask",
+      torch.triu(torch.ones(context_length, context_length), diagonal=1)
+    )
+  
+  def forward(self, x):
+    b, num_tokens, d_in = x.shape
+    keys = self.w_key(x)
+    queries = self.w_query(x) #queries 的形状是 (b, num_tokens, d_out)
+    values = self.w_value(x)
+    attn_scores = queries @ keys.transpose(1, 2)  #交换后两个参数的位置，计算注意力分数
+    attn_scores.masked_fill_(self.mask.to(torch.bool)[:num_tokens, :num_tokens], -torch.inf)  #应用因果掩码
+    attn_weights = torch.softmax(attn_scores / self.d_out**0.5, dim=-1)
+    attn_weights = self.dropout(attn_weights)
+    context_vec = attn_weights @ values
+    return context_vec
+
 inputs = torch.tensor(
   [[0.43, 0.15, 0.89], # Your     (x^1)
    [0.55, 0.87, 0.66], # journey  (x^2)
@@ -33,7 +60,7 @@ contex_length = attn_scores.shape[0]
 
 #采用负无穷方法
 mask = torch.triu(torch.ones(contex_length, contex_length), diagonal=1)
-masked = attn_scores.masked_fill(mask.bool(), -torch.inf)
+masked = attn_scores.masked_fill(mask.to(torch.bool), -torch.inf)
 print(masked)
 
 attn_weights = torch.softmax(masked / keys.shape[-1] ** 0.5, dim=1)
@@ -44,3 +71,9 @@ print(dropout(attn_weights))
 
 batch = torch.stack((inputs, inputs), dim=0)
 print(batch.shape)
+
+torch.manual_seed(123)
+contex_length = batch.shape[1]
+ca = CasualAttention(d_in, d_out, contex_length, 0.0)
+context_vecs = ca(batch)
+print("contex_vecs.shape:",context_vecs.shape)  #contex_vecs.shape: torch.Size([2, 6, 2])
