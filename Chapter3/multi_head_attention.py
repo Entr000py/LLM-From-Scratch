@@ -131,53 +131,54 @@ class MultiHeadAttention(nn.Module):
 
         return context_vec # 返回最终的上下文向量
 
-inputs = torch.tensor(
-  [[0.43, 0.15, 0.89], # Your    (x^1)
-  [0.55, 0.87, 0.66], # journey  (x^2)
-  [0.57, 0.85, 0.64], # starts   (x^3)
-  [0.22, 0.58, 0.33], # with     (x^4)
-  [0.77, 0.25, 0.10], # one      (x^5)
-  [0.05, 0.80, 0.55]] # step     (x^6)
-)
-  
-batch = torch.stack((inputs, inputs), dim=0)
-d_in = inputs.shape[1]
-d_out =2
-torch.manual_seed(123)
-contex_length = batch.shape[1]
-mha = MultiHeadAttentionWrapper(d_in, d_out, contex_length, 0.0, num_heads=2)
-context_vecs = mha(batch)
-print("contex_vecs.shape:",context_vecs.shape)  #contex_vecs.shape: torch.Size([2, 6, 4])
+if __name__ == "__main__":
+    inputs = torch.tensor(
+    [[0.43, 0.15, 0.89], # Your    (x^1)
+    [0.55, 0.87, 0.66], # journey  (x^2)
+    [0.57, 0.85, 0.64], # starts   (x^3)
+    [0.22, 0.58, 0.33], # with     (x^4)
+    [0.77, 0.25, 0.10], # one      (x^5)
+    [0.05, 0.80, 0.55]] # step     (x^6)
+    )
+    
+    batch = torch.stack((inputs, inputs), dim=0)
+    d_in = inputs.shape[1]
+    d_out =2
+    torch.manual_seed(123)
+    contex_length = batch.shape[1]
+    mha = MultiHeadAttentionWrapper(d_in, d_out, contex_length, 0.0, num_heads=2)
+    context_vecs = mha(batch)
+    print("contex_vecs.shape:",context_vecs.shape)  #contex_vecs.shape: torch.Size([2, 6, 4])
 
-a = torch.tensor([[[[0.2745, 0.6584, 0.2775, 0.8573],             
-                    [0.8993, 0.0390, 0.9268, 0.7388],
-                    [0.7179, 0.7058, 0.9156, 0.4340]],
-                   [[0.0772, 0.3565, 0.1479, 0.5331],
-                    [0.4066, 0.2318, 0.4545, 0.9737],
-                    [0.4606, 0.5159, 0.4220, 0.5786]]]])
+    a = torch.tensor([[[[0.2745, 0.6584, 0.2775, 0.8573],             
+                        [0.8993, 0.0390, 0.9268, 0.7388],
+                        [0.7179, 0.7058, 0.9156, 0.4340]],
+                    [[0.0772, 0.3565, 0.1479, 0.5331],
+                        [0.4066, 0.2318, 0.4545, 0.9737],
+                        [0.4606, 0.5159, 0.4220, 0.5786]]]])
 
-first_head = a[0, 0, :, :]
-first_res = first_head @ first_head.T
-print("first_res:", first_res)
-second_head = a[0, 1, :, :]
-second_res = second_head @ second_head.T
-print("second_res:", second_res)
+    first_head = a[0, 0, :, :]
+    first_res = first_head @ first_head.T
+    print("first_res:", first_res)
+    second_head = a[0, 1, :, :]
+    second_res = second_head @ second_head.T
+    print("second_res:", second_res)
 
-# GPT-2 最小模型的参数
-gpt2_min_d_model = 768  # 输入/输出嵌入维度
-gpt2_min_num_heads = 12  # 注意力头数量
-gpt2_min_context_length = 1024 # 上下文长度
-gpt2_min_dropout_rate = 0.1 # Dropout 比率
-gpt2_qkv_bias = True # GPT-2 中 QKV 线性层带有偏置
+    # GPT-2 最小模型的参数
+    gpt2_min_d_model = 768  # 输入/输出嵌入维度
+    gpt2_min_num_heads = 12  # 注意力头数量
+    gpt2_min_context_length = 1024 # 上下文长度
+    gpt2_min_dropout_rate = 0.1 # Dropout 比率
+    gpt2_qkv_bias = True # GPT-2 中 QKV 线性层带有偏置
 
-# 初始化多头注意力模块
-gpt2_min_attention = MultiHeadAttention(
-    d_in=gpt2_min_d_model,
-    d_out=gpt2_min_d_model, # 输出维度与输入维度相同
-    contex_length=gpt2_min_context_length,
-    dropout=gpt2_min_dropout_rate,
-    num_heads=gpt2_min_num_heads,
-    qkv_bias=gpt2_qkv_bias
-)
+    # 初始化多头注意力模块
+    gpt2_min_attention = MultiHeadAttention(
+        d_in=gpt2_min_d_model,
+        d_out=gpt2_min_d_model, # 输出维度与输入维度相同
+        contex_length=gpt2_min_context_length,
+        dropout=gpt2_min_dropout_rate,
+        num_heads=gpt2_min_num_heads,
+        qkv_bias=gpt2_qkv_bias
+    )
 
 
