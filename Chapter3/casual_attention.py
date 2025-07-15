@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from attention_with_trainable_weights import SelfAttention_v2
+from .attention_with_trainable_weights import SelfAttention_v2
 
 
 class CasualAttention(nn.Module):
