@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from casual_attention import CasualAttention
+from .casual_attention import CasualAttention
 
 class MultiHeadAttentionWrapper(torch.nn.Module):
     def __init__(self, d_in, d_out, contex_length, dropout, num_heads, qkv_bias=False):
@@ -180,5 +180,3 @@ if __name__ == "__main__":
         num_heads=gpt2_min_num_heads,
         qkv_bias=gpt2_qkv_bias
     )
-
-
