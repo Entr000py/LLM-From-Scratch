@@ -49,42 +49,42 @@ def generate_text_simple(model, idx, max_new_tokens, contex_size):  #贪心解�
 
     return idx
 
+if __name__ == "__main__":
+    torch.manual_seed(123)
+    model = GPTmodel(GPT_CONFIG_124M)
 
-torch.manual_seed(123)
-model = GPTmodel(GPT_CONFIG_124M)
+    batch = []
+    text1 = "Every effort moves you"
+    text2 = "Every day holds a"
+    tokenizer = tiktoken.get_encoding("gpt2")
+    batch.append(torch.tensor(tokenizer.encode(text1)))
+    batch.append(torch.tensor(tokenizer.encode(text2)))
+    batch = torch.stack(batch)
 
-batch = []
-text1 = "Every effort moves you"
-text2 = "Every day holds a"
-tokenizer = tiktoken.get_encoding("gpt2")
-batch.append(torch.tensor(tokenizer.encode(text1)))
-batch.append(torch.tensor(tokenizer.encode(text2)))
-batch = torch.stack(batch)
+    out = model(batch)
 
-out = model(batch)
+    total_prams = sum(p.numel() for p in model.parameters())
+    print(f"Total parameters: {total_prams}")   #共享权重，嵌入层的权重运用于输出层
+    print("Token embeding shape:", model.tok_emb.weight.shape)
+    print("Output layer shape:", model.out_head.weight.shape)
 
-total_prams = sum(p.numel() for p in model.parameters())
-print(f"Total parameters: {total_prams}")   #共享权重，嵌入层的权重运用于输出层
-print("Token embeding shape:", model.tok_emb.weight.shape)
-print("Output layer shape:", model.out_head.weight.shape)
+    total_prams_2 = total_prams - sum(p.numel() for p in model.out_head.parameters())
+    print(f"Total parameters without output layer: {total_prams_2}")
 
-total_prams_2 = total_prams - sum(p.numel() for p in model.out_head.parameters())
-print(f"Total parameters without output layer: {total_prams_2}")
+    start_context = "Hello, I am"
+    encoded = tokenizer.encode(start_context)
+    print("encoded:", encoded)
+    encoded_tensor = torch.tensor(encoded).unsqueeze(0) #在索引为0的维度增加一个维度
+    print("encoded_tensor:", encoded_tensor)
 
-start_context = "Hello, I am"
-encoded = tokenizer.encode(start_context)
-print("encoded:", encoded)
-encoded_tensor = torch.tensor(encoded).unsqueeze(0)
-print("encoded_tensor:", encoded_tensor)
-
-model.eval()
-out = generate_text_simple(
-    model = model,
-    idx = encoded_tensor,
-    max_new_tokens = 6,
-    contex_size = GPT_CONFIG_124M["context_length"]
-)
-print("Output:", out)
-decoded_text = tokenizer.decode(out.squeeze(0).tolist())
-print("Decoded text:", decoded_text)
+    model.eval()
+    out = generate_text_simple(
+        model = model,
+        idx = encoded_tensor,
+        max_new_tokens = 6,
+        contex_size = GPT_CONFIG_124M["context_length"]
+    )
+    print("Output:", out)
+    decoded_text = tokenizer.decode(out.squeeze(0).tolist())
+    print("Decoded text:", decoded_text)
 
