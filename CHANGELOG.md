@@ -4,6 +4,13 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)，并且本项目遵循[语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+## [0.2.0] - 2025-07-18
+
+### 更改 (Changed)
+- **README.md**: 更新了 `README.md` 文件，提供了更详细的项目描述、结构、安装和使用说明。
+- **requirements.txt**: 更新了 `requirements.txt` 文件，包含了项目的所有依赖。
+- **CODE_OF_CONDUCT.md**: 更新了 `CODE_OF_CONDUCT.md` 文件，为报告违规行为添加了联系方式的占位符。
+
 ## [0.1.1] - 2025-07-06
 
 ### 更改 (Changed)
