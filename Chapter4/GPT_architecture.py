@@ -133,19 +133,17 @@ class LayerNorm(nn.Module):
         norm = (x - mean) / torch.sqrt(var + self.eps)
         return self.scale * norm + self.shift
 
-
-tokenizer = tiktoken.get_encoding("gpt2")
-batch = []
-text1 = "Every effort moves you"
-text2 = "Every day holds a"
-
-batch.append(torch.tensor(tokenizer.encode(text1)))
-batch.append(torch.tensor(tokenizer.encode(text2)))
-batch = torch.stack(batch)
-
 if __name__ == "__main__":
     #print(batch)
     torch.manual_seed(123)
+    tokenizer = tiktoken.get_encoding("gpt2")
+    batch = []
+    text1 = "Every effort moves you"
+    text2 = "Every day holds a"
+
+    batch.append(torch.tensor(tokenizer.encode(text1)))
+    batch.append(torch.tensor(tokenizer.encode(text2)))
+    batch = torch.stack(batch)
     model = DummyGPTmodel(GPT_CONFIG_124M)
     logits = model(batch)
 

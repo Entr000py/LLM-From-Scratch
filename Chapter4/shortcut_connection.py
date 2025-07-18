@@ -23,11 +23,6 @@ class ExampleDeepNeuralNetwork(nn.Module):
                 x = layer_output
         return x
 
-layer_sizes = [3, 3, 3, 3, 3, 1]
-sample_input = torch.tensor([1., 0., -1.])
-torch.manual_seed(123)
-# model_without_shortcut = ExampleDeepNeuralNetwork(layer_sizes, use_shortcut=False)
-
 def print_grandents(model, x):
     output = model(x)
     targrt = torch.tensor([[0.]])
@@ -40,10 +35,15 @@ def print_grandents(model, x):
         if 'weight' in name:
             print(f"{name} has gradient mean of {pram.grad.abs().mean().item()}")
 
-# 没有跳跃连接的模型
-# print_grandents(model_without_shortcut, sample_input)
+if __name__ == '__main__':
+    layer_sizes = [3, 3, 3, 3, 3, 1]
+    sample_input = torch.tensor([1., 0., -1.])
+    torch.manual_seed(123)
+    # model_without_shortcut = ExampleDeepNeuralNetwork(layer_sizes, use_shortcut=False)
+    # 没有跳跃连接的模型
+    # print_grandents(model_without_shortcut, sample_input)
 
-#有跳跃连接的模型
-model_with_shortcut = ExampleDeepNeuralNetwork(layer_sizes, use_shortcut=True)
-print_grandents(model_with_shortcut, sample_input)
+    #有跳跃连接的模型
+    model_with_shortcut = ExampleDeepNeuralNetwork(layer_sizes, use_shortcut=True)
+    print_grandents(model_with_shortcut, sample_input)
 

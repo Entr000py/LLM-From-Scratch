@@ -1,4 +1,4 @@
-from transformer import TransformerBlock 
+from .transformer import TransformerBlock 
 import torch
 import torch.nn as nn
 import tiktoken
@@ -87,4 +87,3 @@ if __name__ == "__main__":
     print("Output:", out)
     decoded_text = tokenizer.decode(out.squeeze(0).tolist())
     print("Decoded text:", decoded_text)
-

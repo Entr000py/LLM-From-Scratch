@@ -1,14 +1,8 @@
-import sys
-import os
-
-# 将项目根目录添加到 sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-
 import torch
 import torch.nn as nn
-from GELU import FeedForward
+from .GELU import FeedForward
 from Chapter3.multi_head_attention import MultiHeadAttention
-from GPT_architecture import GPT_CONFIG_124M
+from .GPT_architecture import GPT_CONFIG_124M
 
 class TransformerBlock(nn.Module):
     def __init__(self, cfg):
