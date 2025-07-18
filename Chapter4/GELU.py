@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 
-from GPT_architecture import GPT_CONFIG_124M
-
+from .GPT_architecture import GPT_CONFIG_124M
 
 class FeedForward(nn.Module):
     def __init__(self, cfg):
@@ -16,7 +15,8 @@ class FeedForward(nn.Module):
     def forward(self, x):
         return self.layers(x)
 
-ffn = FeedForward(GPT_CONFIG_124M)
-x = torch.rand(2, 3, 768)
-y = ffn(x)
-print(y.shape)  #torch.Size([2, 3, 768])
+if __name__ == "__main__":
+    ffn = FeedForward(GPT_CONFIG_124M)
+    x = torch.rand(2, 3, 768)
+    y = ffn(x)
+    print(y.shape)  #torch.Size([2, 3, 768])
