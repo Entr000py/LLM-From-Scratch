@@ -1,65 +1,89 @@
 # LLM-From-Scratch
 
-本项目旨在从零开始逐步构建一个大型语言模型（LLM），参考了 Andrej Karpathy 的 "Let's build GPT" 教程。项目代码包含了构建和训练一个类 GPT 模型所需的关键组件，例如分词、数据集构建和数据加载。
+This project is a step-by-step guide to building a GPT-like Large Language Model (LLM) from scratch, following the structure of the book "Build a Large Language Model (From Scratch)" by Sebastian Raschka. Each chapter's code is organized into its own directory, demonstrating the core concepts of building an LLM.
 
-## 项目结构
+## Project Structure
 
-```
-LLM-From-Scratch/
-├───requirements.in         # pip-compile 的输入文件
-├───requirements.txt        # 项目依赖
-├───Chapter2/               # 第二章：数据处理与分词
-│   ├───byte_pair_encoding.py # 演示 BPE 分词器如何编码和解码文本
-│   ├───GPT_dataset_V1.py   # 为 GPT 模型构建数据集和数据加载器
-│   └───the-verdict.txt     # 用于训练和演示的示例文本
-└───README.md               # 项目说明
-```
+The project is divided into chapters, each focusing on a specific aspect of building an LLM:
 
-## 主要内容
+- **Chapter 2: Data Preparation and Tokenization**
+  - `byte_pair_encoding.py`: Implements the Byte-Pair Encoding (BPE) tokenizer.
+  - `GPT_dataset_V1.py`: Creates a custom dataset for training the GPT model.
+  - `token_embeddings.py`: Demonstrates how to create token and positional embeddings.
 
-### Chapter2: 数据集与分词
+- **Chapter 3: Attention Mechanisms**
+  - `self_attention.py`: Implements the basic self-attention mechanism.
+  - `attention_with_trainable_weights.py`: Adds trainable weights to the self-attention mechanism.
+  - `casual_attention.py`: Implements causal attention to prevent the model from looking at future tokens.
+  - `multi_head_attention.py`: Implements multi-head attention to allow the model to focus on different parts of the input sequence.
 
-本章节重点关注为模型训练准备数据。
+- **Chapter 4: Building the GPT Architecture**
+  - `GELU.py`: Implements the GELU activation function.
+  - `transformer.py`: Implements the Transformer block, which is the core component of the GPT model.
+  - `shortcut_connection.py`: Demonstrates the use of shortcut (residual) connections to improve gradient flow.
+  - `GPT_architecture.py`: Puts together the complete GPT model architecture.
+  - `GPTmodel.py`: A complete GPT model implementation.
 
-- **`byte_pair_encoding.py`**:
-  这个脚本展示了如何使用 `tiktoken` 库（由 OpenAI 开发）来进行字节对编码（Byte Pair Encoding, BPE）。BPE 是一种常见的分词算法，能够有效地将文本切分为模型可以理解的 token。
+- **Chapter 5: Training and Text Generation**
+  - `train_model.py`: Contains the code for training the GPT model.
+  - `generate_text.py`: Contains the code for generating text using the trained model.
 
-- **`GPT_dataset_V1.py`**:
-  该文件定义了一��自定义的 PyTorch `Dataset` 类 (`GPTDataset`) 和一个数据加载器 (`create_dataloader_v1`)。它的核心功能是：
-  1.  接收长文本作为输入。
-  2.  使用分词器将文本编码为 token ID。
-  3.  通过滑动窗口（sliding window）的方式，将长串的 token 切分为固定长度的 `(input, target)` 对。其中 `target` 是 `input` 向右平移一个位置的结果，这是语言模型进行“下一个词预测”任务的标准做法。
+- **dataset/**
+  - `the-verdict.txt`: The text data used for training the model.
 
-## 环境设置
+## Getting Started
 
-1.  **克隆项目**
+### Prerequisites
+
+- Python 3.8 or later
+- PyTorch
+- tiktoken
+- matplotlib
+
+### Installation
+
+1.  Clone the repository:
     ```bash
-    git clone <your-repository-url>
+    git clone https://github.com/your-username/LLM-From-Scratch.git
     cd LLM-From-Scratch
     ```
 
-2.  **安装依赖**
-    项目依赖项已在 `requirements.txt` 中列出。建议创建一个虚拟环境，然后运行以下命令安装：
+2.  Install the required packages:
     ```bash
     pip install -r requirements.txt
     ```
-    主要依赖包括：
-    - `pytorch`: 用于构建和训练模型。
-    - `tiktoken`: 用于文本分词。
-    - `pandas` & `numpy`: 数据处理。
 
-## 如何运行
+### Running the Code
 
-你可以直接运行 `Chapter2` 中的脚本来查看其效果。
+You can run the code for each chapter individually. For example, to run the code for training the model in Chapter 5, you can execute the following command:
 
-- **运行数据加载器示例**:
-  此命令将使用 `the-verdict.txt` 文件作为原始数据，创建一个数据加载器，并打印出第一个批次（batch）的输入和目标数据，以展示数据是如何为模型准备的。
-  ```bash
-  python Chapter2/GPT_dataset_V1.py
-  ```
+```bash
+python Chapter5/train_model.py
+```
 
-- **运行 BPE 编码示例**:
-  此命令将演示如何使用 `gpt2` 的分词器来编码和解码一段简单的文本。
-  ```bash
-  python Chapter2/byte_pair_encoding.py
-  ```
+This will train the GPT model on the provided dataset and save the trained model to `model.pth`. It will also generate a plot of the training and validation loss in `training_loss_plot.png`.
+
+To generate text using the trained model, you can run:
+
+```bash
+python Chapter5/generate_text.py
+```
+
+## Concepts Covered
+
+This project provides a hands-on implementation of the following core concepts of LLMs:
+
+- **Tokenization:** Byte-Pair Encoding (BPE)
+- **Embeddings:** Token and Positional Embeddings
+- **Attention Mechanisms:** Self-Attention, Causal Attention, Multi-Head Attention
+- **Transformer Architecture:** Transformer Blocks, GELU Activation, Layer Normalization, Shortcut Connections
+- **Training:** Custom Datasets, DataLoaders, Training Loop, Loss Calculation
+- **Text Generation:** Greedy Decoding
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a pull request or open an issue if you find any bugs or have suggestions for improvement.
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for more details.
