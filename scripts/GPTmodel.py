@@ -1,4 +1,4 @@
-from .transformer import TransformerBlock 
+from transformer import TransformerBlock 
 import torch
 import torch.nn as nn
 import tiktoken
@@ -37,11 +37,11 @@ class GPTmodel(nn.Module):
         logits = self.out_head(x)
         return logits
 
-def generate_text_simple(model, idx, max_new_tokens, contex_size):  #贪心解码
+def generate_text_simple(model, idx, max_new_tokens, context_size):  #贪心解码
     for _ in range(max_new_tokens):
-        idx_cond = idx[:, -contex_size:]    #取最后contex_size个token
+        idx_cond = idx[:, -context_size:]    #取最后context_size个token
         with torch.no_grad():   #只做推理
-            logits = model(idx_cond)    #参数输入模型
+            logits = model(idx_cond)[0]    #参数输入模型，取元组的第一个元素作为logits
         logits = logits[:, -1, :]   #取出最后一个位置的
         probs = torch.softmax(logits, dim=-1)
         idx_next = torch.argmax(probs, dim=-1, keepdim=True)    #返回概率最高的索引
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         model = model,
         idx = encoded_tensor,
         max_new_tokens = 6,
-        contex_size = GPT_CONFIG_124M["context_length"]
+        context_size = GPT_CONFIG_124M["context_length"]
     )
     print("Output:", out)
     decoded_text = tokenizer.decode(out.squeeze(0).tolist())

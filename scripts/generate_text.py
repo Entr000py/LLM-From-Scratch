@@ -7,12 +7,12 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parents[1]
 sys.path.append(str(project_root))
 
-from Chapter4.GPTmodel import GPTmodel, generate_text_simple
-from Chapter2.GPT_dataset_V1 import create_dataloader_v1
+from GPTmodel import GPTmodel, generate_text_simple
+from GPT_dataset_V1 import create_dataloader_v1
 
 def text_to_token_ids(text, tokenizer):
     # 将文本转换为token ID
-    encoded = tokenizer.encode(text, allowed_special={"<|endoftext|>"})
+    encoded = tokenizer.encode(text)
     encoded_tensor = torch.tensor(encoded).unsqueeze(0)
     return encoded_tensor
 

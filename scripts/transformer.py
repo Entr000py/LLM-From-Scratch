@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from .GELU import FeedForward
-from Chapter3.multi_head_attention import MultiHeadAttention
-from .GPT_architecture import GPT_CONFIG_124M
+from GELU import FeedForward
+from multi_head_attention import MultiHeadAttention
+from GPT_architecture import GPT_CONFIG_124M
 
 class TransformerBlock(nn.Module):
     def __init__(self, cfg):
