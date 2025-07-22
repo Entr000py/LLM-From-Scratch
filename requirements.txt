@@ -1,3 +1,5 @@
 torch
 tiktoken
 matplotlib
+pandas
+requests
