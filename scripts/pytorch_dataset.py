@@ -8,44 +8,72 @@ from gpt_download import download_and_load_gpt2
 from GPTmodel import GPTmodel, generate_text_simple
 from transformer import TransformerBlock
 from multi_head_attention import MultiHeadAttention, MultiHeadAttentionWrapper
-from generate_text import text_to_token_ids, token_ids_to_text
+from generate_text import text_to_ids, ids_to_text
+import numpy as np
+from gpt_download import download_and_load_gpt2
 
+def assign(left, right):
+    if left.shape != right.shape:
+        raise ValueError(f"Shape mismatch. Left: {left.shape}, Right: {right.shape}")
+    return torch.nn.Parameter(torch.tensor(right))
 
-def load_weights_into_gpt(model, params):
-    """
-    将预训练的 GPT 权重加载到自定义的 GPT 模型中。
+def load_weights_into_gpt(gpt, params):
+    gpt.pos_emb.weight = assign(gpt.pos_emb.weight, params['wpe'])               #A
+    gpt.tok_emb.weight = assign(gpt.tok_emb.weight, params['wte'])
+    for b in range(len(params["blocks"])):                                       #B
+        q_w, k_w, v_w = np.split(                                                #C
+            (params["blocks"][b]["attn"]["c_attn"])["w"], 3, axis=-1)
+        gpt.trf_blocks[b].att.W_query.weight = assign(
+            gpt.trf_blocks[b].att.W_query.weight, q_w.T)
+        gpt.trf_blocks[b].att.W_key.weight = assign(
+            gpt.trf_blocks[b].att.W_key.weight, k_w.T)
+        gpt.trf_blocks[b].att.W_value.weight = assign(
+            gpt.trf_blocks[b].att.W_value.weight, v_w.T)
 
-    Args:
-        model (GPTmodel): 自定义的 GPT 模型实例。
-        params (dict): 包含预训练权重的字典。
-    """
-    # 加载词嵌入层 (wte) 和位置嵌入层 (wpe) 的权重
-    model.transformer.wte.weight.data = params["wte"]
-    model.transformer.wpe.weight.data = params["wpe"]
-    # 加载最终层归一化 (ln_f) 的权重和偏置
-    model.transformer.ln_f.weight.data = params["ln_f.g"]
-    model.transformer.ln_f.bias.data = params["ln_f.b"]
+        q_b, k_b, v_b = np.split(
+            (params["blocks"][b]["attn"]["c_attn"])["b"], 3, axis=-1)
+        gpt.trf_blocks[b].att.W_query.bias = assign(
+            gpt.trf_blocks[b].att.W_query.bias, q_b)
+        gpt.trf_blocks[b].att.W_key.bias = assign(
+            gpt.trf_blocks[b].att.W_key.bias, k_b)
+        gpt.trf_blocks[b].att.W_value.bias = assign(
+            gpt.trf_blocks[b].att.W_value.bias, v_b)
 
-    # 遍历每个 Transformer 块并加载其对应的权重
-    for i, block in enumerate(model.transformer.h):
-        # 加载第一个层归一化 (ln_1) 的权重和偏置
-        block.ln_1.weight.data = params[f"h.{i}.ln_1.g"]
-        block.ln_1.bias.data = params[f"h.{i}.ln_1.b"]
-        # 加载自注意力机制中 c_attn 层的权重和偏置
-        block.attn.c_attn.weight.data = params[f"h.{i}.attn.c_attn.w"]
-        block.attn.c_attn.bias.data = params[f"h.{i}.attn.c_attn.b"]
-        # 加载自注意力机制中 c_proj 层的权重和偏置
-        block.attn.c_proj.weight.data = params[f"h.{i}.attn.c_proj.w"]
-        block.attn.c_proj.bias.data = params[f"h.{i}.attn.c_proj.b"]
-        # 加载第二个层归一化 (ln_2) 的权重和偏置
-        block.ln_2.weight.data = params[f"h.{i}.ln_2.g"]
-        block.ln_2.bias.data = params[f"h.{i}.ln_2.b"]
-        # 加载 MLP 中 c_fc 层的权重和偏置
-        block.mlp.c_fc.weight.data = params[f"h.{i}.mlp.c_fc.w"]
-        block.mlp.c_fc.bias.data = params[f"h.{i}.mlp.c_fc.b"]
-        # 加载 MLP 中 c_proj 层的权重和偏置
-        block.mlp.c_proj.weight.data = params[f"h.{i}.mlp.c_proj.w"]
-        block.mlp.c_proj.bias.data = params[f"h.{i}.mlp.c_proj.b"]
+        gpt.trf_blocks[b].att.out_proj.weight = assign(
+            gpt.trf_blocks[b].att.out_proj.weight,
+            params["blocks"][b]["attn"]["c_proj"]["w"].T)
+        gpt.trf_blocks[b].att.out_proj.bias = assign(
+            gpt.trf_blocks[b].att.out_proj.bias,
+            params["blocks"][b]["attn"]["c_proj"]["b"])
+
+        gpt.trf_blocks[b].ff.layers[0].weight = assign(
+            gpt.trf_blocks[b].ff.layers[0].weight,
+            params["blocks"][b]["mlp"]["c_fc"]["w"].T)
+        gpt.trf_blocks[b].ff.layers[0].bias = assign(
+            gpt.trf_blocks[b].ff.layers[0].bias,
+            params["blocks"][b]["mlp"]["c_fc"]["b"])
+        gpt.trf_blocks[b].ff.layers[2].weight = assign(
+            gpt.trf_blocks[b].ff.layers[2].weight,
+            params["blocks"][b]["mlp"]["c_proj"]["w"].T)
+        gpt.trf_blocks[b].ff.layers[2].bias = assign(
+            gpt.trf_blocks[b].ff.layers[2].bias,
+            params["blocks"][b]["mlp"]["c_proj"]["b"])
+
+        gpt.trf_blocks[b].norm1.weight = assign(
+            gpt.trf_blocks[b].norm1.weight,
+            params["blocks"][b]["ln_1"]["g"])
+        gpt.trf_blocks[b].norm1.bias = assign(
+            gpt.trf_blocks[b].norm1.bias,
+            params["blocks"][b]["ln_1"]["b"])
+        gpt.trf_blocks[b].norm2.weight = assign(
+            gpt.trf_blocks[b].norm2.weight,
+            params["blocks"][b]["ln_2"]["g"])
+        gpt.trf_blocks[b].norm2.bias = assign(
+            gpt.trf_blocks[b].norm2.bias,
+            params["blocks"][b]["ln_2"]["b"])
+        
+        gpt.final_norm.weight = assign(gpt.final_norm.weight, params["g"])
+        gpt.final_norm.bias = assign(gpt.final_norm.bias, params["b"])
 
 class SpamDataset(Dataset):
     """
@@ -202,10 +230,11 @@ if __name__ == '__main__':
     )
 
     # 加载 Hugging Face 的 GPT2LMHeadModel
-    model = GPT2LMHeadModel.from_pretrained(model_name, cache_dir=download_path)
-    
+    model = GPTmodel(BASE_CONFIG)
+
     # 获取自定义 GPT 模型所需的参数
-    _, params = download_and_load_gpt2(model_size=model_name, models_dir=download_path)
+    settings, params = download_and_load_gpt2(model_size="124M", models_dir=download_path)
+    print("Available keys in params:", params.keys())
     
     # 将下载的权重加载到模型中
     load_weights_into_gpt(model, params)
@@ -213,12 +242,17 @@ if __name__ == '__main__':
 
     # 示例文本生成
     text_1 = "Every effort moves you forward"
+    text_2 = (
+    "Is the following text 'spam'? Answer with 'yes' or 'no':"
+    " 'You are a winner you have been specially"
+    " selected to receive $1000 cash or a $2000 award.'"
+    )
     # 将文本转换为 token ID
     token_ids = generate_text_simple(
         model = model,
-        idx = text_to_token_ids(text_1, tokenizer),
-        max_new_tokens = 15, # 生成的最大新 token 数量
+        idx = torch.tensor(text_to_ids(text_2, tokenizer)).unsqueeze(0),
+        max_new_tokens = 25, # 生成的最大新 token 数量
         context_size = BASE_CONFIG["context_length"] # 上下文大小
     )
     # 将生成的 token ID 转换回文本并打印
-    print(token_ids_to_text(token_ids, tokenizer))
+    print(ids_to_text(token_ids, tokenizer))
