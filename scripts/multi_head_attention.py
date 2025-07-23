@@ -40,9 +40,9 @@ class MultiHeadAttention(nn.Module):
 
         # 定义用于计算 Query (Q), Key (K), Value (V) 的线性变换层
         # 这些层将输入 d_in 投影到 d_out (num_heads * head_dim) 维度
-        self.w_query = nn.Linear(d_in, d_out, bias=qkv_bias)
-        self.w_key = nn.Linear(d_in, d_out, bias=qkv_bias)
-        self.w_value = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_query = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_key = nn.Linear(d_in, d_out, bias=qkv_bias)
+        self.W_value = nn.Linear(d_in, d_out, bias=qkv_bias)
 
         # 定义最终的输出投影层。在所有注意力头的输出拼接后，
         # 会通过这个层将维度从 d_out 再次投影回 d_out (如果 d_out == d_model的话)。
@@ -75,9 +75,9 @@ class MultiHeadAttention(nn.Module):
 
         # 1. 计算 Query, Key, Value
         # 将输入x分别通过Q, K, V的线性层，得到形状为(b, num_tokens, d_out)的张量
-        keys = self.w_key(x) 
-        queries = self.w_query(x)
-        values = self.w_value(x)
+        keys = self.W_key(x) 
+        queries = self.W_query(x)
+        values = self.W_value(x)
 
         # 2. 将Q, K, V分割成多头
         # 将d_out维度拆分为 (num_heads, head_dim)，并调整形状

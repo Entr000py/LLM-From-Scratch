@@ -9,20 +9,20 @@ import matplotlib.pyplot as plt # 新增导入
 project_root = Path(__file__).resolve().parents[1]
 sys.path.append(str(project_root))
 
-from Chapter4.GPTmodel import GPTmodel, generate_text_simple
-from Chapter2.GPT_dataset_V1 import create_dataloader_v1
-from Chapter5.generate_text import text_to_token_ids, token_ids_to_text, cal_loss_batch as calc_loss_batch, calc_loss_loader as calc_loss_eval
+from GPTmodel import GPTmodel, generate_text_simple
+from GPT_dataset_V1 import create_dataloader_v1
+from generate_text import text_to_ids, ids_to_text, batch_ids_to_text, cal_loss_batch, calc_loss_loader
 # 评估模型在训练集和验证集上的性能
 def evaluate_model(model, train_loader, val_loader, device, eval_iter):
     model.eval()  # 将模型设置为评估模式
     with torch.no_grad():  # 在此上下文中禁用梯度计算
         # 计算训练损失
-        train_loss = calc_loss_eval(train_loader, model, device, num_batches = eval_iter)
+        train_loss = calc_loss_loader(train_loader, model, device, num_batches = eval_iter)
         # 计算验证损失
         if len(val_loader) == 0: # 检查val_loader是否为空
             val_loss = 0.0 # 如果为空，则将val_loss设置为0.0
         else: 
-            val_loss = calc_loss_eval(val_loader, model, device, num_batches = eval_iter)
+            val_loss = calc_loss_loader(val_loader, model, device, num_batches = eval_iter)
     model.train()  # 将模型设置回训练模式
     return train_loss, val_loss  # 返回训练损失和验证损失
 
@@ -32,17 +32,17 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
     # 获取模型的位置嵌入大小，即上下文窗口大小
     context_size = model.pos_emb.weight.shape[0]
     # 将起始上下文文本编码为token ID，并移动到指定设备
-    encoded = text_to_token_ids(start_context, tokenizer).to(device)
+    encoded = text_to_ids(start_context, tokenizer).unsqueeze(0).to(device)
     with torch.no_grad():  # 在此上下文中禁用梯度计算
         # 使用模型生成文本token ID
         token_ids = generate_text_simple(
             model = model,
             idx = encoded,
             max_new_tokens = 50,  # 生成的最大新token数量
-            contex_size = context_size
+            context_size = context_size
         )
         # 将生成的token ID解码为文本
-        decoded_text = token_ids_to_text(token_ids, tokenizer)
+        decoded_text = batch_ids_to_text(token_ids, tokenizer)
         # 打印解码后的文本，将换行符替换为空格
         print(decoded_text.replace("\n", " "))
     model.train()  # 将模型设置回训练模式
@@ -58,7 +58,7 @@ def train_model_simple(model, train_loader, val_loader, optimizer, device, num_e
         for input_batch, target_batch in train_loader:  # 遍历训练数据加载器中的每个批次
             optimizer.zero_grad()  # 清除之前的梯度
             # 计算当前批次的损失
-            loss = calc_loss_batch(input_batch, target_batch, model, device)
+            loss = cal_loss_batch(input_batch, target_batch, model, device)
             loss.backward()  # 反向传播，计算梯度
             optimizer.step()  # 更新模型参数
             # 累计已处理的token数量
@@ -128,6 +128,9 @@ if __name__ == "__main__":
     # Load text data from file using project root
     file_path = project_root / "dataset" / "the-verdict.txt"
     text_data = load_text_data(file_path)
+    if text_data is None:
+        print("无法加载文本数据，退出程序。")
+        sys.exit(1) # 退出程序
 
     train_ratio = 0.9
     split_idx = int(len(text_data) * train_ratio)

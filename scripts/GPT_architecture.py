@@ -129,9 +129,9 @@ class LayerNorm(nn.Module):
 
     def forward(self, x):
         mean = x.mean(dim=-1, keepdim=True)
-        var = x.var(dim=-1, keepdim=True)
-        norm = (x - mean) / torch.sqrt(var + self.eps)
-        return self.scale * norm + self.shift
+        var = x.var(dim=-1, keepdim=True, unbiased=False)
+        norm_x = (x - mean) / torch.sqrt(var + self.eps)
+        return self.scale * norm_x + self.shift
 
 if __name__ == "__main__":
     #print(batch)

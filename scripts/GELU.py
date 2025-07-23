@@ -1,18 +1,27 @@
 import torch
 import torch.nn as nn
 
+class GELU(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return 0.5 * x * (1 + torch.tanh(
+            torch.sqrt(torch.tensor(2.0 / torch.pi)) *
+            (x + 0.044715 * torch.pow(x, 3))
+        ))
+
 class FeedForward(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        self.c_fc = nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"])
-        self.gelu = nn.GELU()
-        self.c_proj = nn.Linear(4 * cfg["emb_dim"], cfg["emb_dim"])
+        self.layers = nn.Sequential(
+            nn.Linear(cfg["emb_dim"], 4 * cfg["emb_dim"]),
+            GELU(),
+            nn.Linear(4 * cfg["emb_dim"], cfg["emb_dim"]),
+        )
 
     def forward(self, x):
-        x = self.c_fc(x)
-        x = self.gelu(x)
-        x = self.c_proj(x)
-        return x
+        return self.layers(x)
 
 # if __name__ == "__main__":
 #     from GPT_architecture import GPT_CONFIG_124M # 仅在需要时导入

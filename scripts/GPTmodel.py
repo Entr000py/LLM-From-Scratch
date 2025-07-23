@@ -25,7 +25,8 @@ class GPTmodel(nn.Module):
         )
         self.final_norm = nn.LayerNorm(cfg["emb_dim"])
         self.out_head = nn.Linear(cfg["emb_dim"], cfg["vocab_size"], bias=False)
-    
+        self.out_head.weight = self.tok_emb.weight
+
     def forward(self, in_idx):
         batch_size, seq_len = in_idx.shape
         tok_embeds = self.tok_emb(in_idx)
@@ -37,11 +38,11 @@ class GPTmodel(nn.Module):
         logits = self.out_head(x)
         return logits
 
-def generate_text_simple(model, idx, max_new_tokens, context_size):  #贪心解码
+def generate_text_simple(model, idx, max_new_tokens, context_size):  #贪心解码,模型很容易陷入重复的循环中，生成像 "I am I am I am..." 或 "的 的 的 的..." 这样的文本。因为它一旦发现某个词是当前最安全的选择，就可能一直选择下去。
     for _ in range(max_new_tokens):
         idx_cond = idx[:, -context_size:]    #取最后context_size个token
         with torch.no_grad():   #只做推理
-            logits = model(idx_cond)[0]    #参数输入模型，取元组的第一个元素作为logits
+            logits = model(idx_cond)    #参数输入模型
         logits = logits[:, -1, :]   #取出最后一个位置的
         probs = torch.softmax(logits, dim=-1)
         idx_next = torch.argmax(probs, dim=-1, keepdim=True)    #返回概率最高的索引

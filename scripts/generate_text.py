@@ -10,16 +10,31 @@ sys.path.append(str(project_root))
 from GPTmodel import GPTmodel, generate_text_simple
 from GPT_dataset_V1 import create_dataloader_v1
 
-def text_to_token_ids(text, tokenizer):
-    # 将文本转换为token ID
-    encoded = tokenizer.encode(text)
-    encoded_tensor = torch.tensor(encoded).unsqueeze(0)
-    return encoded_tensor
+def text_to_ids(text, tokenizer):
+    """
+    将文本编码为 token ID。
+    """
+    return tokenizer.encode(text)
 
-def token_ids_to_text(token_ids, tokenizer):
-    # 将token ID转换回文本
-    flat = token_ids.squeeze(0)
-    return tokenizer.decode(flat.tolist())
+# 如果要支持批处理 (batch decoding)
+def ids_to_text(token_ids, tokenizer):
+    """
+    将 token ID 解码回文本，更健壮，并能处理特殊 token。
+    token_ids 可以是 (1, seq_len) 或 (seq_len,)
+    .squeeze() 会移除所有维度为 1 的轴，更灵活
+    """
+    ids = token_ids.squeeze() 
+    
+    # 使用 skip_special_tokens=True 来移除解码文本中的特殊符号
+    return tokenizer.decode(ids, skip_special_tokens=True)
+
+def batch_ids_to_text(token_ids_batch, tokenizer):
+    """
+    将一批 token ID 解码成一个文本列表。
+    token_ids_batch 的形状应为 (batch_size, sequence_length)
+    """
+    # batch_decode 会对批处理中的每个序列单独解码
+    return tokenizer.batch_decode(token_ids_batch, skip_special_tokens=True)
 
 def load_text_data(file_path):
     """Load text data from file"""
@@ -102,13 +117,13 @@ if __name__ == "__main__":
     # 生成文本
     token_ids = generate_text_simple(
         model = model,
-        idx = text_to_token_ids(start_context, tokenizer),
+        idx = torch.tensor(text_to_ids(start_context, tokenizer)).unsqueeze(0),
         max_new_tokens = 10,
-        contex_size = GPT_CONFIG_124M["context_length"]
+        context_size = GPT_CONFIG_124M["context_length"]
     )
 
     # 打印生成的文本
-    #print("Output text:", token_ids_to_text(token_ids, tokenizer))
+    print("Output text:", ids_to_text(token_ids, tokenizer))
 
     inputs = torch.tensor([[16833, 3626, 6100],  # ["every effort moves",
                         [40, 1107, 588]])     # "I really like"]
@@ -127,9 +142,9 @@ if __name__ == "__main__":
     # 打印生成的token IDs
     print("Token ids:\n", token_ids)
     # 打印目标文本
-    print("Target batch 1:", {token_ids_to_text(targets[0], tokenizer)})
+    print("Target batch 1:", {ids_to_text(targets[0], tokenizer)})
     # 打印生成的文本
-    print("Output batch 1:", {token_ids_to_text(token_ids[0].flatten(), tokenizer)})
+    print("Output batch 1:", {ids_to_text(token_ids[0].flatten(), tokenizer)})
 
     # 目标token与初始softmax概率得分
     text_idx = 0
@@ -169,6 +184,9 @@ if __name__ == "__main__":
     file_path = project_root / "dataset" / "the-verdict.txt"
     # Load the text data
     text_data = load_text_data(file_path)
+    if text_data is None:
+        print("无法加载文本数据，退出。")
+        sys.exit(1)
 
     train_ratio = 0.9
     split_idx = int(len(text_data) * train_ratio)
