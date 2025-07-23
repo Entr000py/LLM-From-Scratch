@@ -4,6 +4,8 @@ import tiktoken
 import sys
 from pathlib import Path
 import matplotlib.pyplot as plt # 新增导入
+from temperature_scaling import generate
+
 
 # 将项目根目录添加到sys.path，以便导入Chapter4和Chapter2中的模块
 project_root = Path(__file__).resolve().parents[1]
@@ -167,5 +169,21 @@ if __name__ == "__main__":
     optimizer = torch.optim.AdamW(model.parameters(), lr  = 0.0004, weight_decay= 0.1)  # 创建优化器
     num_epochs = 10
     train_loss, val_loss, tokens_seen = train_model_simple(
-        model, train_loader, val_loader, optimizer, device, num_epochs = num_epochs, eval_freq = 5, eval_iter= 1, start_context= "Every effort moves you", tokenizer = tokenizer
-        )
+        model, train_loader, 
+        val_loader,
+        optimizer,
+        device,
+        num_epochs = num_epochs,
+        eval_freq = 5,
+        eval_iter= 1,
+        start_context= "Every effort moves you",
+        tokenizer = tokenizer
+    )
+    token_ids = generate(
+        model = model,
+        idx = text_to_ids("Every effort moves you", tokenizer).to(device),
+        context_size = GPT_CONFIG_124M["context_length"],
+        max_new_tokens = 25,
+        temperature = 1.4
+    )
+    print(ids_to_text(token_ids, tokenizer))
