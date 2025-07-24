@@ -34,7 +34,7 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
     # 获取模型的位置嵌入大小，即上下文窗口大小
     context_size = model.pos_emb.weight.shape[0]
     # 将起始上下文文本编码为token ID，并移动到指定设备
-    encoded = text_to_ids(start_context, tokenizer).unsqueeze(0).to(device)
+    encoded = torch.tensor(text_to_ids(start_context, tokenizer)).unsqueeze(0).to(device)
     with torch.no_grad():  # 在此上下文中禁用梯度计算
         # 使用模型生成文本token ID
         token_ids = generate_text_simple(
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     )
     token_ids = generate(
         model = model,
-        idx = text_to_ids("Every effort moves you", tokenizer).to(device),
+        idx = torch.tensor(text_to_ids("Every effort moves you", tokenizer)).to(device),
         context_size = GPT_CONFIG_124M["context_length"],
         max_new_tokens = 25,
         temperature = 1.4
