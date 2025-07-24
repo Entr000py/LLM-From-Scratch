@@ -1,88 +1,76 @@
 # LLM-From-Scratch
 
-This project is a step-by-step guide to building a GPT-like Large Language Model (LLM) from scratch, following the structure of the book "Build a Large Language Model (From Scratch)" by Sebastian Raschka. Each chapter's code is organized into its own directory, demonstrating the core concepts of building an LLM.
+This project provides a step-by-step guide to building a GPT-like Large Language Model (LLM) from scratch, inspired by the book "Build a Large Language Model (From Scratch)" by Sebastian Raschka. It demonstrates the core concepts of building and training an LLM using PyTorch.
+
+## Features
+
+- **Modular Codebase**: Core components like attention mechanisms, the Transformer architecture, and data loaders are organized into separate, easy-to-understand scripts.
+- **Multi-GPU Training**: Supports training on multiple GPUs using `torch.nn.DataParallel` to accelerate the training process.
+- **Logging**: Integrated logging for monitoring training progress and debugging.
+- **Text Generation**: Includes scripts for generating new text with the trained model, featuring both simple and temperature-scaled sampling.
+- **Data Handling**: Custom PyTorch `Dataset` and `DataLoader` for efficient text data processing.
 
 ## Project Structure
 
-The project is divided into chapters, each focusing on a specific aspect of building an LLM:
+The project's scripts are located in the `scripts/` directory:
 
-- **Chapter 2: Data Preparation and Tokenization**
-  - `byte_pair_encoding.py`: Implements the Byte-Pair Encoding (BPE) tokenizer.
-  - `GPT_dataset_V1.py`: Creates a custom dataset for training the GPT model.
-  - `token_embeddings.py`: Demonstrates how to create token and positional embeddings.
+-   `GPTmodel.py`: The complete GPT model architecture.
+-   `train_model.py`: The main script for training the model. It handles the training loop, evaluation, and saving results.
+-   `generate_text.py`: Contains utility functions for text encoding/decoding and generation.
+-   `GPT_dataset_V1.py`: Implements the custom PyTorch `Dataset` for the text data.
+-   `utils.py`: Contains shared utility functions, such as loading text data.
+-   `attention*.py`, `transformer.py`, etc.: Various scripts implementing the core building blocks of the Transformer model.
 
-- **Chapter 3: Attention Mechanisms**
-  - `self_attention.py`: Implements the basic self-attention mechanism.
-  - `attention_with_trainable_weights.py`: Adds trainable weights to the self-attention mechanism.
-  - `casual_attention.py`: Implements causal attention to prevent the model from looking at future tokens.
-  - `multi_head_attention.py`: Implements multi-head attention to allow the model to focus on different parts of the input sequence.
-
-- **Chapter 4: Building the GPT Architecture**
-  - `GELU.py`: Implements the GELU activation function.
-  - `transformer.py`: Implements the Transformer block, which is the core component of the GPT model.
-  - `shortcut_connection.py`: Demonstrates the use of shortcut (residual) connections to improve gradient flow.
-  - `GPT_architecture.py`: Puts together the complete GPT model architecture.
-  - `GPTmodel.py`: A complete GPT model implementation.
-
-- **Chapter 5: Training and Text Generation**
-  - `train_model.py`: Contains the code for training the GPT model.
-  - `generate_text.py`: Contains the code for generating text using the trained model.
-
-- **dataset/**
-  - `the-verdict.txt`: The text data used for training the model.
+The training data is located in the `dataset/` directory.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.8 or later
-- PyTorch
-- tiktoken
-- matplotlib
+-   Python 3.8+
+-   PyTorch
+-   The packages listed in `requirements.txt`.
 
 ### Installation
 
-1.  Clone the repository:
+1.  **Clone the repository:**
     ```bash
     git clone https://github.com/your-username/LLM-From-Scratch.git
     cd LLM-From-Scratch
     ```
 
-2.  Install the required packages:
+2.  **Install the required packages:**
+    It is recommended to use a virtual environment.
     ```bash
     pip install -r requirements.txt
     ```
 
-### Running the Code
+### How to Run
 
-You can run the code for each chapter individually. For example, to run the code for training the model in Chapter 5, you can execute the following command:
+#### Training the Model
 
-```bash
-python Chapter5/train_model.py
-```
-
-This will train the GPT model on the provided dataset and save the trained model to `model.pth`. It will also generate a plot of the training and validation loss in `training_loss_plot.png`.
-
-To generate text using the trained model, you can run:
+To train the model, run the `train_model.py` script:
 
 ```bash
-python Chapter5/generate_text.py
+python scripts/train_model.py
 ```
 
-## Concepts Covered
+-   **Multi-GPU Usage**: The script will automatically detect and use all available GPUs. If you have 3 GPUs, it will use `DataParallel` to distribute the workload across them.
+-   **Logging**: Training progress will be logged to the console.
+-   **Output**: A plot of the training and validation loss will be saved as `training_loss_plot.png`.
 
-This project provides a hands-on implementation of the following core concepts of LLMs:
+#### Generating Text
 
-- **Tokenization:** Byte-Pair Encoding (BPE)
-- **Embeddings:** Token and Positional Embeddings
-- **Attention Mechanisms:** Self-Attention, Causal Attention, Multi-Head Attention
-- **Transformer Architecture:** Transformer Blocks, GELU Activation, Layer Normalization, Shortcut Connections
-- **Training:** Custom Datasets, DataLoaders, Training Loop, Loss Calculation
-- **Text Generation:** Greedy Decoding
+The `generate_text.py` script can be run to see a demonstration of its utility functions. However, the primary text generation after training happens at the end of the `train_model.py` script.
 
-## Contributing
+## Recent Improvements
 
-Contributions are welcome! Please feel free to submit a pull request or open an issue if you find any bugs or have suggestions for improvement.
+-   **Multi-GPU Support**: The training script was updated to automatically leverage multiple GPUs, specifically configured for up to 3 GPUs, to speed up training.
+-   **Logging Implementation**: Replaced `print` statements with a robust logging system to provide structured and informative output during training.
+-   **Code Refactoring**:
+    -   Created a `scripts/utils.py` file for shared utility functions to reduce code duplication.
+    -   Moved loss calculation logic from `generate_text.py` to `train_model.py` to improve separation of concerns.
+    -   Cleaned up and clarified the responsibilities of each script.
 
 ## License
 
