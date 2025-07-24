@@ -21,3 +21,4 @@ build/
 *.zip
 *.png
 *.jpg
+*.ssh
