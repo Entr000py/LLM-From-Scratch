@@ -25,6 +25,10 @@ def ids_to_text(token_ids, tokenizer):
     """
     ids = token_ids.squeeze() 
     
+    # 如果 ids 是 PyTorch 张量，将其转换为列表
+    if hasattr(ids, 'tolist'):
+        ids = ids.tolist()
+    
     # 使用 skip_special_tokens=True 来移除解码文本中的特殊符号
     return tokenizer.decode(ids, skip_special_tokens=True)
 
