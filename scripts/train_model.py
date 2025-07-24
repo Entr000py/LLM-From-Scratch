@@ -201,3 +201,12 @@ if __name__ == "__main__":
         temperature=1.4
     )
     logging.info(f"Final generated text: {ids_to_text(token_ids, tokenizer)}")
+
+    torch.save({
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "config": GPT_CONFIG_124M
+        }, 
+        project_root / "models" / "gpt_model.pth"
+        )
+    
