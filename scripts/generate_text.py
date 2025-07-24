@@ -29,16 +29,20 @@ def ids_to_text(token_ids, tokenizer):
     if hasattr(ids, 'tolist'):
         ids = ids.tolist()
     
-    # 使用 skip_special_tokens=True 来移除解码文本中的特殊符号
-    return tokenizer.decode(ids, skip_special_tokens=True)
+    # 解码 token ID 为文本
+    return tokenizer.decode(ids)
 
 def batch_ids_to_text(token_ids_batch, tokenizer):
     """
     将一批 token ID 解码成一个文本列表。
     token_ids_batch 的形状应为 (batch_size, sequence_length)
     """
-    # batch_decode 会对批处理中的每个序列单独解码
-    return tokenizer.batch_decode(token_ids_batch, skip_special_tokens=True)
+    # 如果 token_ids_batch 是 PyTorch 张量，将其转换为列表
+    if hasattr(token_ids_batch, 'tolist'):
+        token_ids_batch = token_ids_batch.tolist()
+    
+    # 对批处理中的每个序列单独解码
+    return [tokenizer.decode(ids) for ids in token_ids_batch]
 
 def load_text_data(file_path):
     """Load text data from file"""
