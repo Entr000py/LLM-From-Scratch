@@ -181,7 +181,7 @@ if __name__ == "__main__":
     )
     token_ids = generate(
         model = model,
-        idx = torch.tensor(text_to_ids("Every effort moves you", tokenizer)).to(device),
+        idx = torch.tensor(text_to_ids("Every effort moves you", tokenizer)).unsqueeze(0).to(device),
         context_size = GPT_CONFIG_124M["context_length"],
         max_new_tokens = 25,
         temperature = 1.4
