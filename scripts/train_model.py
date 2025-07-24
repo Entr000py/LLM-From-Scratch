@@ -44,7 +44,7 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
             context_size = context_size
         )
         # 将生成的token ID解码为文本
-        decoded_text = batch_ids_to_text(token_ids, tokenizer)
+        decoded_text = ids_to_text(token_ids, tokenizer)
         # 打印解码后的文本，将换行符替换为空格
         print(decoded_text.replace("\n", " "))
     model.train()  # 将模型设置回训练模式
