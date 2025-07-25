@@ -71,9 +71,9 @@ def load_weights_into_gpt(gpt, params):
         gpt.trf_blocks[b].norm2.bias = assign(
             gpt.trf_blocks[b].norm2.bias,
             params["blocks"][b]["ln_2"]["b"])
-        
-        gpt.final_norm.weight = assign(gpt.final_norm.weight, params["g"])
-        gpt.final_norm.bias = assign(gpt.final_norm.bias, params["b"])
+    
+    gpt.final_norm.weight = assign(gpt.final_norm.weight, params["g"])
+    gpt.final_norm.bias = assign(gpt.final_norm.bias, params["b"])
 
 class SpamDataset(Dataset):
     """
@@ -188,14 +188,14 @@ if __name__ == '__main__':
     val_loader = DataLoader(
         dataset = val_dataset,
         batch_size = batch_size,
-        shuffle = True, # 验证集也打乱
+        shuffle = False, # 验证集也打乱
         num_workers = num_workers,
         drop_last = True
     )
     test_loader = DataLoader(
         dataset = test_dataset,
         batch_size = batch_size,
-        shuffle = True, # 测试集也打乱
+        shuffle = False, # 测试集也打乱
         num_workers = num_workers,
         drop_last = True
     )
