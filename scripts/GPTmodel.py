@@ -38,15 +38,21 @@ class GPTmodel(nn.Module):
         logits = self.out_head(x)
         return logits
 
-def generate_text_simple(model, idx, max_new_tokens, context_size):  #贪心解码,模型很容易陷入重复的循环中，生成像 "I am I am I am..." 或 "的 的 的 的..." 这样的文本。因为它一旦发现某个词是当前最安全的选择，就可能一直选择下去。
+def generate_text_simple(model, idx, max_new_tokens, context_size, temperature=1.0, top_k=None):
     for _ in range(max_new_tokens):
-        idx_cond = idx[:, -context_size:]    #取最后context_size个token
-        with torch.no_grad():   #只做推理
-            logits = model(idx_cond)    #参数输入模型
-        logits = logits[:, -1, :]   #取出最后一个位置的
+        idx_cond = idx[:, -context_size:]
+        with torch.no_grad():
+            logits = model(idx_cond)
+        
+        logits = logits[:, -1, :] / temperature
+
+        if top_k is not None:
+            v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+            logits[logits < v[:, [-1]]] = -float('Inf')
+
         probs = torch.softmax(logits, dim=-1)
-        idx_next = torch.argmax(probs, dim=-1, keepdim=True)    #返回概率最高的索引
-        idx = torch.cat((idx, idx_next), dim=1) #新生成的token拼接到现有序列尾部，作为下次循环的上下文
+        idx_next = torch.multinomial(probs, num_samples=1)
+        idx = torch.cat((idx, idx_next), dim=1)
 
     return idx
 
