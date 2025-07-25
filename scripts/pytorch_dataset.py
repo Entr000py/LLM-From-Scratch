@@ -150,7 +150,7 @@ class SpamDataset(Dataset):
 
 if __name__ == '__main__':
     # 定义模型下载路径和模型名称
-    download_path = r"D:\Program Files (x86)\weight"
+    download_path = r"/storage/jiangfei/LLM-From-Scratch/weight"
     model_name = "gpt2" # 或者 "gpt2-large", "gpt2-medium", "gpt2-xl"
     # 从预训练模型加载 tokenizer
     tokenizer = GPT2Tokenizer.from_pretrained(model_name, cache_dir=download_path)
@@ -162,17 +162,17 @@ if __name__ == '__main__':
 
     # 初始化训练、验证和测试数据集
     train_dataset = SpamDataset(
-        csv_files= r'C:\Users\13106\Desktop\LLM-From-Scratch\dataset\train.csv',
+        csv_files= r'/storage/jiangfei/LLM-From-Scratch/dataset/train.csv',
         max_length = None, # 自动确定最大长度
         tokenizer = tokenizer
     )
     val_dataset = SpamDataset(
-        csv_files= r'C:\Users\13106\Desktop\LLM-From-Scratch\dataset\validation.csv',
+        csv_files= r'/storage/jiangfei/LLM-From-Scratch/dataset/validation.csv',
         max_length = None,
         tokenizer = tokenizer
     )
     test_dataset = SpamDataset(
-        csv_files= r'C:\Users\13106\Desktop\LLM-From-Scratch\dataset\test.csv',
+        csv_files= r'/storage/jiangfei/LLM-From-Scratch/dataset/test.csv',
         max_length = None,
         tokenizer = tokenizer
     )
