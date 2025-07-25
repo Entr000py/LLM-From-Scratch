@@ -1,14 +1,5 @@
 import torch
-import tiktoken
-import sys
-from pathlib import Path
-
-# Add the project root to sys.path to allow importing modules from Chapter4
-project_root = Path(__file__).resolve().parents[1]
-sys.path.append(str(project_root))
-
-import torch
-import tiktoken
+from transformers import GPT2Tokenizer
 import sys
 from pathlib import Path
 
@@ -39,7 +30,7 @@ if __name__ == "__main__":
     # This block is for demonstrating the text utility functions
     
     # 1. Initialize tokenizer
-    tokenizer = tiktoken.get_encoding("gpt2")
+    tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
 
     # 2. Demonstrate text_to_ids and ids_to_text
     text = "Hello, world!"
