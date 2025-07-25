@@ -15,7 +15,9 @@ from gpt_download import download_and_load_gpt2
 def assign(left, right):
     if left.shape != right.shape:
         raise ValueError(f"Shape mismatch. Left: {left.shape}, Right: {right.shape}")
-    return torch.nn.Parameter(torch.tensor(right))
+    with torch.no_grad():
+        left.copy_(torch.tensor(right))
+    return left
 
 def load_weights_into_gpt(gpt, params):
     gpt.pos_emb.weight = assign(gpt.pos_emb.weight, params['wpe'])               #A
@@ -249,10 +251,12 @@ if __name__ == '__main__':
     )
     # 将文本转换为 token ID
     token_ids = generate_text_simple(
-        model = model,
-        idx = torch.tensor(text_to_ids(text_2, tokenizer)).unsqueeze(0),
-        max_new_tokens = 25, # 生成的最大新 token 数量
-        context_size = BASE_CONFIG["context_length"] # 上下文大小
+        model=model,
+        idx=torch.tensor(text_to_ids(text_2, tokenizer)).unsqueeze(0),
+        max_new_tokens=25,
+        context_size=BASE_CONFIG["context_length"],
+        temperature=0.7,
+        top_k=50
     )
     # 将生成的 token ID 转换回文本并打印
     print(ids_to_text(token_ids, tokenizer))
