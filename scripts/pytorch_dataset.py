@@ -10,6 +10,7 @@ from transformer import TransformerBlock
 from multi_head_attention import MultiHeadAttention, MultiHeadAttentionWrapper
 from generate_text import text_to_ids, ids_to_text
 import numpy as np
+import os
 
 def assign(left, right):
     if left.shape != right.shape:
@@ -153,6 +154,13 @@ if __name__ == '__main__':
     # 定义模型下载路径和模型名称
     download_path = r"/storage/jiangfei/LLM-From-Scratch/weight"
     model_name = "gpt2" # 或者 "gpt2-large", "gpt2-medium", "gpt2-xl"
+    
+    # 禁用代理
+    os.environ.pop('HTTP_PROXY', None)
+    os.environ.pop('HTTPS_PROXY', None)
+    os.environ.pop('http_proxy', None)
+    os.environ.pop('https_proxy', None)
+    
     # 从预训练模型加载 tokenizer
     tokenizer = GPT2Tokenizer.from_pretrained(model_name, cache_dir=download_path)
     
@@ -284,4 +292,3 @@ if __name__ == '__main__':
     with torch.no_grad():
         outputs = model(inputs)
     print("Output dimension :", outputs.shape)
-    
