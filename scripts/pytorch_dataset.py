@@ -10,7 +10,6 @@ from transformer import TransformerBlock
 from multi_head_attention import MultiHeadAttention, MultiHeadAttentionWrapper
 from generate_text import text_to_ids, ids_to_text
 import numpy as np
-from gpt_download import download_and_load_gpt2
 
 def assign(left, right):
     if left.shape != right.shape:
@@ -234,12 +233,29 @@ if __name__ == '__main__':
     # 加载 Hugging Face 的 GPT2LMHeadModel
     model = GPTmodel(BASE_CONFIG)
 
+    #冻结模型
+    for param in model.parameters():
+        param.requires_grad = False
+
+    #替换为分类头
+    num_classes = 2
+    model.out_head = torch.nn.Linear(
+        in_features=BASE_CONFIG["emb_dim"],
+        out_features=num_classes
+    )
+
+    for param in model.trf_blocks[-1].parameters():
+        param.requires_grad = True
+    for param in model.out_head.parameters():
+        param.requires_grad = True
+
     # 获取自定义 GPT 模型所需的参数
     settings, params = download_and_load_gpt2(model_size="124M", models_dir=download_path)
     print("Available keys in params:", params.keys())
     
     # 将下载的权重加载到模型中
     load_weights_into_gpt(model, params)
+
     model.eval() # 将模型设置为评估模式
 
     # 示例文本生成
