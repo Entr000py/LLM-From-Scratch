@@ -36,62 +36,62 @@ def assign(left, right):
     return left
 
 def load_weights_into_gpt(gpt, params):
-    gpt.pos_emb.weight = assign(gpt.pos_emb.weight, params['wpe'])               #A
-    gpt.tok_emb.weight = assign(gpt.tok_emb.weight, params['wte'])
+    gpt.module.pos_emb.weight = assign(gpt.module.pos_emb.weight, params['wpe'])               #A
+    gpt.module.tok_emb.weight = assign(gpt.module.tok_emb.weight, params['wte'])
     for b in range(len(params["blocks"])):                                       #B
         q_w, k_w, v_w = np.split(                                                #C
             (params["blocks"][b]["attn"]["c_attn"])["w"], 3, axis=-1)
-        gpt.trf_blocks[b].att.W_query.weight = assign(
-            gpt.trf_blocks[b].att.W_query.weight, q_w.T)
-        gpt.trf_blocks[b].att.W_key.weight = assign(
-            gpt.trf_blocks[b].att.W_key.weight, k_w.T)
-        gpt.trf_blocks[b].att.W_value.weight = assign(
-            gpt.trf_blocks[b].att.W_value.weight, v_w.T)
+        gpt.module.trf_blocks[b].att.W_query.weight = assign(
+            gpt.module.trf_blocks[b].att.W_query.weight, q_w.T)
+        gpt.module.trf_blocks[b].att.W_key.weight = assign(
+            gpt.module.trf_blocks[b].att.W_key.weight, k_w.T)
+        gpt.module.trf_blocks[b].att.W_value.weight = assign(
+            gpt.module.trf_blocks[b].att.W_value.weight, v_w.T)
 
         q_b, k_b, v_b = np.split(
             (params["blocks"][b]["attn"]["c_attn"])["b"], 3, axis=-1)
-        gpt.trf_blocks[b].att.W_query.bias = assign(
-            gpt.trf_blocks[b].att.W_query.bias, q_b)
-        gpt.trf_blocks[b].att.W_key.bias = assign(
-            gpt.trf_blocks[b].att.W_key.bias, k_b)
-        gpt.trf_blocks[b].att.W_value.bias = assign(
-            gpt.trf_blocks[b].att.W_value.bias, v_b)
+        gpt.module.trf_blocks[b].att.W_query.bias = assign(
+            gpt.module.trf_blocks[b].att.W_query.bias, q_b)
+        gpt.module.trf_blocks[b].att.W_key.bias = assign(
+            gpt.module.trf_blocks[b].att.W_key.bias, k_b)
+        gpt.module.trf_blocks[b].att.W_value.bias = assign(
+            gpt.module.trf_blocks[b].att.W_value.bias, v_b)
 
-        gpt.trf_blocks[b].att.out_proj.weight = assign(
-            gpt.trf_blocks[b].att.out_proj.weight,
+        gpt.module.trf_blocks[b].att.out_proj.weight = assign(
+            gpt.module.trf_blocks[b].att.out_proj.weight,
             params["blocks"][b]["attn"]["c_proj"]["w"].T)
-        gpt.trf_blocks[b].att.out_proj.bias = assign(
-            gpt.trf_blocks[b].att.out_proj.bias,
+        gpt.module.trf_blocks[b].att.out_proj.bias = assign(
+            gpt.module.trf_blocks[b].att.out_proj.bias,
             params["blocks"][b]["attn"]["c_proj"]["b"])
 
-        gpt.trf_blocks[b].ff.layers[0].weight = assign(
-            gpt.trf_blocks[b].ff.layers[0].weight,
+        gpt.module.trf_blocks[b].ff.layers[0].weight = assign(
+            gpt.module.trf_blocks[b].ff.layers[0].weight,
             params["blocks"][b]["mlp"]["c_fc"]["w"].T)
-        gpt.trf_blocks[b].ff.layers[0].bias = assign(
-            gpt.trf_blocks[b].ff.layers[0].bias,
+        gpt.module.trf_blocks[b].ff.layers[0].bias = assign(
+            gpt.module.trf_blocks[b].ff.layers[0].bias,
             params["blocks"][b]["mlp"]["c_fc"]["b"])
-        gpt.trf_blocks[b].ff.layers[2].weight = assign(
-            gpt.trf_blocks[b].ff.layers[2].weight,
+        gpt.module.trf_blocks[b].ff.layers[2].weight = assign(
+            gpt.module.trf_blocks[b].ff.layers[2].weight,
             params["blocks"][b]["mlp"]["c_proj"]["w"].T)
-        gpt.trf_blocks[b].ff.layers[2].bias = assign(
-            gpt.trf_blocks[b].ff.layers[2].bias,
+        gpt.module.trf_blocks[b].ff.layers[2].bias = assign(
+            gpt.module.trf_blocks[b].ff.layers[2].bias,
             params["blocks"][b]["mlp"]["c_proj"]["b"])
 
-        gpt.trf_blocks[b].norm1.weight = assign(
-            gpt.trf_blocks[b].norm1.weight,
+        gpt.module.trf_blocks[b].norm1.weight = assign(
+            gpt.module.trf_blocks[b].norm1.weight,
             params["blocks"][b]["ln_1"]["g"])
-        gpt.trf_blocks[b].norm1.bias = assign(
-            gpt.trf_blocks[b].norm1.bias,
+        gpt.module.trf_blocks[b].norm1.bias = assign(
+            gpt.module.trf_blocks[b].norm1.bias,
             params["blocks"][b]["ln_1"]["b"])
-        gpt.trf_blocks[b].norm2.weight = assign(
-            gpt.trf_blocks[b].norm2.weight,
+        gpt.module.trf_blocks[b].norm2.weight = assign(
+            gpt.module.trf_blocks[b].norm2.weight,
             params["blocks"][b]["ln_2"]["g"])
-        gpt.trf_blocks[b].norm2.bias = assign(
-            gpt.trf_blocks[b].norm2.bias,
+        gpt.module.trf_blocks[b].norm2.bias = assign(
+            gpt.module.trf_blocks[b].norm2.bias,
             params["blocks"][b]["ln_2"]["b"])
     
-    gpt.final_norm.weight = assign(gpt.final_norm.weight, params["g"])
-    gpt.final_norm.bias = assign(gpt.final_norm.bias, params["b"])
+    gpt.module.final_norm.weight = assign(gpt.module.final_norm.weight, params["g"])
+    gpt.module.final_norm.bias = assign(gpt.module.final_norm.bias, params["b"])
 
 class SpamDataset(Dataset):
     """
@@ -316,7 +316,7 @@ def classify_review(text, model, tokenizer, device, max_length = None, pad_token
     model.eval()
 
     input_ids = tokenizer.encode(text)
-    supported_context_length = model.pos_emb.weight.shape[1]
+    supported_context_length = model.module.pos_emb.weight.shape[1]
 
     input_ids = input_ids[:min(max_length, supported_context_length)]
     input_ids += [pad_token_id] * (max_length - len(input_ids))
@@ -490,7 +490,7 @@ if __name__ == '__main__':
     print(f"Test loss: {test_loss:.4f}")
 
     start_time = time.time()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     num_epochs = 5
     train_losses, val_losses, train_accs, val_accs, example_seen = train_classifier_simple(
         model, train_loader, val_loader, optimizer, device,
