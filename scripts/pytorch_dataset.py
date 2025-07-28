@@ -202,17 +202,20 @@ def calc_accuracy_loader(data_loader, model, device, num_batches=None):
     
     return correct_predictions / num_examples  # 返回准确率
 
-# 评估模型在训练集和验证集上的性能 (分类器版本)
 def evaluate_model(model, train_loader, val_loader, device, eval_iter):
-    model.eval()
-    with torch.no_grad():
+    model.eval()  # 将模型设置为评估模式，禁用 Dropout 和 BatchNorm 等层
+    with torch.no_grad():  # 在此上下文管理器中禁用梯度计算，以节省内存并加快推理
+        # 计算训练集上的损失
         train_loss = calc_loss_loader(train_loader, model, device, num_batches=eval_iter)
+        
+        # 检查验证集是否为空，如果为空则验证损失为0
         if len(val_loader) == 0:
             val_loss = 0.0
         else:
+            # 计算验证集上的损失
             val_loss = calc_loss_loader(val_loader, model, device, num_batches=eval_iter)
-    model.train()
-    return train_loss, val_loss
+    model.train()  # 将模型重新设置为训练模式
+    return train_loss, val_loss  # 返回训练损失和验证损失
 
 def calc_loss_batch(input_batch, target_batch, model, device):
     """
@@ -261,19 +264,36 @@ def calc_loss_loader(data_loader, model, device, num_batches=None):
     return total_loss / num_batches  # 返回平均损失
 
 def train_classifier_simple(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, tokenizer):
+    """
+    训练一个简单的分类器模型。
+
+    Args:
+        model (nn.Module): 要训练的 PyTorch 模型。
+        train_loader (DataLoader): 训练数据加载器。
+        val_loader (DataLoader): 验证数据加载器。
+        optimizer (Optimizer): 优化器。
+        device (torch.device): 模型和数据所在的设备（例如 'cpu' 或 'cuda'）。
+        num_epochs (int): 训练的总 epoch 数。
+        eval_freq (int): 每隔多少个全局步长评估一次模型。
+        eval_iter (int): 评估时使用的批次数量。
+        tokenizer: 文本分词器（在此函数中未使用，但作为参数传递）。
+
+    Returns:
+        tuple: 包含训练损失、验证损失、训练准确率、验证准确率列表以及已处理的样本总数。
+    """
     train_losses, val_losses, train_accs, val_accs = [], [], [], []
     example_seen, global_step = 0, -1
     for epoch in range(num_epochs):
-        model.train()
+        model.train()  # 将模型设置为训练模式
         for input_batch, target_batch in train_loader:
-            optimizer.zero_grad()
-            loss = calc_loss_batch(input_batch, target_batch, model, device)
-            loss.backward()
-            optimizer.step()
-            example_seen += input_batch.shape[0]
-            global_step += 1
-            
-            if global_step % eval_freq == 0:
+            optimizer.zero_grad()  # 清除之前的梯度
+            loss = calc_loss_batch(input_batch, target_batch, model, device)  # 计算当前批次的损失
+            loss.backward()  # 反向传播计算梯度
+            optimizer.step()  # 更新模型参数
+            example_seen += input_batch.shape[0]  # 累加已处理的样本数
+            global_step += 1  # 增加全局步长
+
+            if global_step % eval_freq == 0:  # 定期评估模型
                 train_loss, val_loss = evaluate_model(
                     model, train_loader, val_loader, device, eval_iter
                 )
@@ -281,15 +301,32 @@ def train_classifier_simple(model, train_loader, val_loader, optimizer, device, 
                 val_losses.append(val_loss)
                 print(f"Ep {epoch+1} (Step {global_step:06d})):"
                     f"Train loss {train_loss:.4f}, Val loss {val_loss:.4f}")
-            
+
+        # 每个 epoch 结束时计算训练和验证准确率
         train_accuracy = calc_accuracy_loader(train_loader, model, device, num_batches=eval_iter)
         val_accuracy = calc_accuracy_loader(val_loader, model, device, num_batches=eval_iter)
         print(f"Training accuracy: {train_accuracy*100:.2f}% |", end="")
         print(f"Validation accuracy: {val_accuracy*100:.2f}%")
         train_accs.append(train_accuracy)
         val_accs.append(val_accuracy)
-    
+
     return train_losses, val_losses, train_accs, val_accs, example_seen
+
+def classify_review(text, model, tokenizer, device, max_length = None, pad_token_id = 50256):
+    model.eval()
+
+    input_ids = tokenizer.encode(text)
+    supported_context_length = model.pos_emb.weight.shape[1]
+
+    input_ids = input_ids[:min(max_length, supported_context_length)]
+    input_ids += [pad_token_id] * (max_length - len(input_ids))
+    input_tensor = torch.tensor(input_ids, device = device).unsqueeze(0)
+
+    with torch.no_grad():
+        logits = model(input_tensor)[:, -1, :]
+    predicted_label = torch.argmax(logits, dim = -1).item()
+
+    return "spam" if predicted_label == 1 else "not spam"
 
 if __name__ == '__main__':
 
@@ -380,7 +417,7 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     if torch.cuda.device_count() > 1:
         logging.info(f"Using {torch.cuda.device_count()} GPUs!")
-        model = nn.DataParallel(model, device_ids=[0, 1, 2])
+        model = nn.DataParallel(model)
 
     model.to(device)
     #冻结模型
@@ -463,3 +500,13 @@ if __name__ == '__main__':
     end_time = time.time()
     execution_time = end_time - start_time
     print(f"Training completed in {execution_time:.2f} seconds.")
+
+    text_1 = (
+    "You are a winner you have been specially"
+    " selected to receive $1000 cash or a $2000 award."
+    )
+    print(classify_review(
+        text_1, model, tokenizer, device, max_length=train_dataset.max_length
+    ))
+
+    torch.save(model.state_dict(), "review_classifier.pth")
