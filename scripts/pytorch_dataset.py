@@ -351,7 +351,7 @@ if __name__ == '__main__':
         out_features=num_classes
     )
 
-    for param in model.trf_blocks[-1].parameters():
+    for param in model.module.trf_blocks[-1].parameters():
         param.requires_grad = True
     for param in model.out_head.parameters():
         param.requires_grad = True
@@ -361,7 +361,7 @@ if __name__ == '__main__':
     print("Available keys in params:", params.keys())
     
     # 将下载的权重加载到模型中
-    load_weights_into_gpt(model, params)
+    load_weights_into_gpt(model.module, params)
 
     # model.eval() # 将模型设置为评估模式
 
