@@ -36,62 +36,63 @@ def assign(left, right):
     return left
 
 def load_weights_into_gpt(gpt, params):
-    gpt.module.pos_emb.weight = assign(gpt.module.pos_emb.weight, params['wpe'])               #A
-    gpt.module.tok_emb.weight = assign(gpt.module.tok_emb.weight, params['wte'])
+    model_to_load = gpt.module if isinstance(gpt, nn.DataParallel) else gpt
+    model_to_load.pos_emb.weight = assign(model_to_load.pos_emb.weight, params['wpe'])               #A
+    model_to_load.tok_emb.weight = assign(model_to_load.tok_emb.weight, params['wte'])
     for b in range(len(params["blocks"])):                                       #B
         q_w, k_w, v_w = np.split(                                                #C
             (params["blocks"][b]["attn"]["c_attn"])["w"], 3, axis=-1)
-        gpt.module.trf_blocks[b].att.W_query.weight = assign(
-            gpt.module.trf_blocks[b].att.W_query.weight, q_w.T)
-        gpt.module.trf_blocks[b].att.W_key.weight = assign(
-            gpt.module.trf_blocks[b].att.W_key.weight, k_w.T)
-        gpt.module.trf_blocks[b].att.W_value.weight = assign(
-            gpt.module.trf_blocks[b].att.W_value.weight, v_w.T)
+        model_to_load.trf_blocks[b].att.W_query.weight = assign(
+            model_to_load.trf_blocks[b].att.W_query.weight, q_w.T)
+        model_to_load.trf_blocks[b].att.W_key.weight = assign(
+            model_to_load.trf_blocks[b].att.W_key.weight, k_w.T)
+        model_to_load.trf_blocks[b].att.W_value.weight = assign(
+            model_to_load.trf_blocks[b].att.W_value.weight, v_w.T)
 
         q_b, k_b, v_b = np.split(
             (params["blocks"][b]["attn"]["c_attn"])["b"], 3, axis=-1)
-        gpt.module.trf_blocks[b].att.W_query.bias = assign(
-            gpt.module.trf_blocks[b].att.W_query.bias, q_b)
-        gpt.module.trf_blocks[b].att.W_key.bias = assign(
-            gpt.module.trf_blocks[b].att.W_key.bias, k_b)
-        gpt.module.trf_blocks[b].att.W_value.bias = assign(
-            gpt.module.trf_blocks[b].att.W_value.bias, v_b)
+        model_to_load.trf_blocks[b].att.W_query.bias = assign(
+            model_to_load.trf_blocks[b].att.W_query.bias, q_b)
+        model_to_load.trf_blocks[b].att.W_key.bias = assign(
+            model_to_load.trf_blocks[b].att.W_key.bias, k_b)
+        model_to_load.trf_blocks[b].att.W_value.bias = assign(
+            model_to_load.trf_blocks[b].att.W_value.bias, v_b)
 
-        gpt.module.trf_blocks[b].att.out_proj.weight = assign(
-            gpt.module.trf_blocks[b].att.out_proj.weight,
+        model_to_load.trf_blocks[b].att.out_proj.weight = assign(
+            model_to_load.trf_blocks[b].att.out_proj.weight,
             params["blocks"][b]["attn"]["c_proj"]["w"].T)
-        gpt.module.trf_blocks[b].att.out_proj.bias = assign(
-            gpt.module.trf_blocks[b].att.out_proj.bias,
+        model_to_load.trf_blocks[b].att.out_proj.bias = assign(
+            model_to_load.trf_blocks[b].att.out_proj.bias,
             params["blocks"][b]["attn"]["c_proj"]["b"])
 
-        gpt.module.trf_blocks[b].ff.layers[0].weight = assign(
-            gpt.module.trf_blocks[b].ff.layers[0].weight,
+        model_to_load.trf_blocks[b].ff.layers[0].weight = assign(
+            model_to_load.trf_blocks[b].ff.layers[0].weight,
             params["blocks"][b]["mlp"]["c_fc"]["w"].T)
-        gpt.module.trf_blocks[b].ff.layers[0].bias = assign(
-            gpt.module.trf_blocks[b].ff.layers[0].bias,
+        model_to_load.trf_blocks[b].ff.layers[0].bias = assign(
+            model_to_load.trf_blocks[b].ff.layers[0].bias,
             params["blocks"][b]["mlp"]["c_fc"]["b"])
-        gpt.module.trf_blocks[b].ff.layers[2].weight = assign(
-            gpt.module.trf_blocks[b].ff.layers[2].weight,
+        model_to_load.trf_blocks[b].ff.layers[2].weight = assign(
+            model_to_load.trf_blocks[b].ff.layers[2].weight,
             params["blocks"][b]["mlp"]["c_proj"]["w"].T)
-        gpt.module.trf_blocks[b].ff.layers[2].bias = assign(
-            gpt.module.trf_blocks[b].ff.layers[2].bias,
+        model_to_load.trf_blocks[b].ff.layers[2].bias = assign(
+            model_to_load.trf_blocks[b].ff.layers[2].bias,
             params["blocks"][b]["mlp"]["c_proj"]["b"])
 
-        gpt.module.trf_blocks[b].norm1.weight = assign(
-            gpt.module.trf_blocks[b].norm1.weight,
+        model_to_load.trf_blocks[b].norm1.weight = assign(
+            model_to_load.trf_blocks[b].norm1.weight,
             params["blocks"][b]["ln_1"]["g"])
-        gpt.module.trf_blocks[b].norm1.bias = assign(
-            gpt.module.trf_blocks[b].norm1.bias,
+        model_to_load.trf_blocks[b].norm1.bias = assign(
+            model_to_load.trf_blocks[b].norm1.bias,
             params["blocks"][b]["ln_1"]["b"])
-        gpt.module.trf_blocks[b].norm2.weight = assign(
-            gpt.module.trf_blocks[b].norm2.weight,
+        model_to_load.trf_blocks[b].norm2.weight = assign(
+            model_to_load.trf_blocks[b].norm2.weight,
             params["blocks"][b]["ln_2"]["g"])
-        gpt.module.trf_blocks[b].norm2.bias = assign(
-            gpt.module.trf_blocks[b].norm2.bias,
+        model_to_load.trf_blocks[b].norm2.bias = assign(
+            model_to_load.trf_blocks[b].norm2.bias,
             params["blocks"][b]["ln_2"]["b"])
     
-    gpt.module.final_norm.weight = assign(gpt.module.final_norm.weight, params["g"])
-    gpt.module.final_norm.bias = assign(gpt.module.final_norm.bias, params["b"])
+    model_to_load.final_norm.weight = assign(model_to_load.final_norm.weight, params["g"])
+    model_to_load.final_norm.bias = assign(model_to_load.final_norm.bias, params["b"])
 
 class SpamDataset(Dataset):
     """
@@ -316,7 +317,8 @@ def classify_review(text, model, tokenizer, device, max_length = None, pad_token
     model.eval()
 
     input_ids = tokenizer.encode(text)
-    supported_context_length = model.module.pos_emb.weight.shape[1]
+    model_to_use = model.module if isinstance(model, nn.DataParallel) else model
+    supported_context_length = model_to_use.pos_emb.weight.shape[1]
 
     input_ids = input_ids[:min(max_length, supported_context_length)]
     input_ids += [pad_token_id] * (max_length - len(input_ids))
