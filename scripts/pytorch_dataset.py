@@ -6,7 +6,6 @@ from transformers import GPT2Tokenizer, GPT2LMHeadModel
 from GELU import FeedForward
 from gpt_download import download_and_load_gpt2
 from GPTmodel import GPTmodel, generate_text_simple
-from train_model import evaluate_model
 from transformer import TransformerBlock
 from multi_head_attention import MultiHeadAttention, MultiHeadAttentionWrapper
 from generate_text import text_to_ids, ids_to_text
@@ -202,6 +201,18 @@ def calc_accuracy_loader(data_loader, model, device, num_batches=None):
             break  # 如果达到指定的批次数量，则停止循环
     
     return correct_predictions / num_examples  # 返回准确率
+
+# 评估模型在训练集和验证集上的性能 (分类器版本)
+def evaluate_model(model, train_loader, val_loader, device, eval_iter):
+    model.eval()
+    with torch.no_grad():
+        train_loss = calc_loss_loader(train_loader, model, device, num_batches=eval_iter)
+        if len(val_loader) == 0:
+            val_loss = 0.0
+        else:
+            val_loss = calc_loss_loader(val_loader, model, device, num_batches=eval_iter)
+    model.train()
+    return train_loss, val_loss
 
 def calc_loss_batch(input_batch, target_batch, model, device):
     """
