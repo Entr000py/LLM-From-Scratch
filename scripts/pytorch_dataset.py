@@ -6,7 +6,7 @@ from transformers import GPT2Tokenizer, GPT2LMHeadModel
 from GELU import FeedForward
 from gpt_download import download_and_load_gpt2
 from GPTmodel import GPTmodel, generate_text_simple
-from scripts.train_model import evaluate_model
+from train_model import evaluate_model
 from transformer import TransformerBlock
 from multi_head_attention import MultiHeadAttention, MultiHeadAttentionWrapper
 from generate_text import text_to_ids, ids_to_text
