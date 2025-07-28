@@ -1,5 +1,4 @@
 import pandas as pd
-from tensorflow.python.ops.resource_variable_ops import variable_accessed
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -7,12 +6,14 @@ from transformers import GPT2Tokenizer, GPT2LMHeadModel
 from GELU import FeedForward
 from gpt_download import download_and_load_gpt2
 from GPTmodel import GPTmodel, generate_text_simple
+from scripts.train_model import evaluate_model
 from transformer import TransformerBlock
 from multi_head_attention import MultiHeadAttention, MultiHeadAttentionWrapper
 from generate_text import text_to_ids, ids_to_text
 import numpy as np
 import os
 import logging
+import time
 
 def assign(left, right):
     """
@@ -248,6 +249,37 @@ def calc_loss_loader(data_loader, model, device, num_batches=None):
             break  # 如果达到指定的批次数量，则停止循环
     return total_loss / num_batches  # 返回平均损失
 
+def train_classifier_simple(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, tokenizer):
+    train_losses, val_losses, train_accs, val_accs = [], [], [], []
+    example_seen, global_step = 0, -1
+    for epoch in range(num_epochs):
+        model.train()
+        for input_batch, target_batch in train_loader:
+            optimizer.zero_grad()
+            loss = calc_loss_batch(input_batch, target_batch, model, device)
+            loss.backward()
+            optimizer.step()
+            example_seen += input_batch.shape[0]
+            global_step += 1
+            
+            if global_step % eval_freq == 0:
+                train_loss, val_loss = evaluate_model(
+                    model, train_loader, val_loader, device, eval_iter
+                )
+                train_losses.append(train_loss)
+                val_losses.append(val_loss)
+                print(f"Ep {epoch+1} (Step {global_step:06d})):"
+                    f"Train loss {train_loss:.4f}, Val loss {val_loss:.4f}")
+            
+        train_accuracy = calc_accuracy_loader(train_loader, model, device, num_batches=eval_iter)
+        val_accuracy = calc_accuracy_loader(val_loader, model, device, num_batches=eval_iter)
+        print(f"Training accuracy: {train_accuracy*100:.2f}% |", end="")
+        print(f"Validation accuracy: {val_accuracy*100:.2f}%")
+        train_accs.append(train_accuracy)
+        val_accs.append(val_accuracy)
+    
+    return train_losses, val_losses, train_accs, val_accs, example_seen
+
 if __name__ == '__main__':
 
     # 定义模型下载路径和模型名称
@@ -290,14 +322,14 @@ if __name__ == '__main__':
     val_loader = DataLoader(
         dataset = val_dataset,
         batch_size = batch_size,
-        shuffle = False, # 验证集也打乱
+        shuffle = False, # 验证集不打乱
         num_workers = num_workers,
         drop_last = True
     )
     test_loader = DataLoader(
         dataset = test_dataset,
         batch_size = batch_size,
-        shuffle = False, # 测试集也打乱
+        shuffle = False, # 测试集不打乱
         num_workers = num_workers,
         drop_last = True
     )
@@ -408,3 +440,15 @@ if __name__ == '__main__':
     print(f"Train loss: {train_loss:.4f}")
     print(f"Validation loss: {val_loss:.4f}")
     print(f"Test loss: {test_loss:.4f}")
+
+    start_time = time.time()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
+    num_epochs = 5
+    train_losses, val_losses, train_accs, val_accs, example_seen = train_classifier_simple(
+        model, train_loader, val_loader, optimizer, device,
+        num_epochs = num_epochs, eval_freq = 50, eval_iter = 5, tokenizer = tokenizer
+    )
+
+    end_time = time.time()
+    execution_time = end_time - start_time
+    print(f"Training completed in {execution_time:.2f} seconds.")
