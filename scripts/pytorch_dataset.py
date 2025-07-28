@@ -256,23 +256,32 @@ if __name__ == '__main__':
     # 将下载的权重加载到模型中
     load_weights_into_gpt(model, params)
 
-    model.eval() # 将模型设置为评估模式
+    # model.eval() # 将模型设置为评估模式
 
-    # 示例文本生成
-    text_1 = "Every effort moves you forward"
-    text_2 = (
-    "Is the following text 'spam'? Answer with 'yes' or 'no':"
-    " 'You are a winner you have been specially"
-    " selected to receive $1000 cash or a $2000 award.'"
-    )
-    # 将文本转换为 token ID
-    token_ids = generate_text_simple(
-        model=model,
-        idx=torch.tensor(text_to_ids(text_2, tokenizer)).unsqueeze(0),
-        max_new_tokens=25,
-        context_size=BASE_CONFIG["context_length"],
-        temperature=0.7,
-        top_k=50
-    )
-    # 将生成的 token ID 转换回文本并打印
-    print(ids_to_text(token_ids, tokenizer))
+    # # 示例文本生成
+    # text_1 = "Every effort moves you forward"
+    # text_2 = (
+    # "Is the following text 'spam'? Answer with 'yes' or 'no':"
+    # " 'You are a winner you have been specially"
+    # " selected to receive $1000 cash or a $2000 award.'"
+    # )
+    # # 将文本转换为 token ID
+    # token_ids = generate_text_simple(
+    #     model=model,
+    #     idx=torch.tensor(text_to_ids(text_2, tokenizer)).unsqueeze(0),
+    #     max_new_tokens=25,
+    #     context_size=BASE_CONFIG["context_length"],
+    #     temperature=0.7,
+    #     top_k=50
+    # )
+    # # 将生成的 token ID 转换回文本并打印
+    # print(ids_to_text(token_ids, tokenizer))
+
+    inputs = tokenizer.encode("Do you have time")
+    inputs = torch.tensor(inputs).unsqueeze(0)
+    print("Inputs :", inputs)
+    print("Input dimension :", inputs.shape)
+    with torch.no_grad():
+        outputs = model(inputs)
+    print("Output dimension :", outputs.shape)
+    
