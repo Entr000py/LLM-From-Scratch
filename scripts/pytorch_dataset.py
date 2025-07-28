@@ -1,4 +1,5 @@
 import pandas as pd
+from tensorflow.python.ops.resource_variable_ops import variable_accessed
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
@@ -11,8 +12,23 @@ from multi_head_attention import MultiHeadAttention, MultiHeadAttentionWrapper
 from generate_text import text_to_ids, ids_to_text
 import numpy as np
 import os
+import logging
 
 def assign(left, right):
+    """
+    将右侧 Tensor 的内容复制到左侧 Tensor 中。
+    如果形状不匹配，则抛出 ValueError。
+
+    Args:
+        left (torch.Tensor): 目标 Tensor，内容将被覆盖。
+        right (numpy.ndarray or torch.Tensor): 源数据，其内容将被复制。
+
+    Returns:
+        torch.Tensor: 更新后的左侧 Tensor。
+
+    Raises:
+        ValueError: 如果 left 和 right 的形状不匹配。
+    """
     if left.shape != right.shape:
         raise ValueError(f"Shape mismatch. Left: {left.shape}, Right: {right.shape}")
     with torch.no_grad():
@@ -150,16 +166,93 @@ class SpamDataset(Dataset):
         """
         return max(len(encoded_text) for encoded_text in self.encoded_texts)
 
+def calc_accuracy_loader(data_loader, model, device, num_batches=None):
+    """
+    计算模型在给定数据加载器上的准确率。
+
+    Args:
+        data_loader (DataLoader): 用于加载数据的 PyTorch DataLoader。
+        model (nn.Module): 要评估的 PyTorch 模型。
+        device (torch.device): 模型和数据所在的设备（例如 'cpu' 或 'cuda'）。
+        num_batches (int, optional): 要处理的批次数量。如果为 None，则处理所有批次。
+
+    Returns:
+        float: 模型的准确率。
+    """
+    model.eval()  # 将模型设置为评估模式
+    correct_predictions, num_examples = 0, 0  # 初始化正确预测数和样本总数
+    
+    if num_batches is None:
+        num_batches = len(data_loader)  # 如果未指定批次数量，则使用数据加载器中的所有批次
+    else:
+        num_batches = min(num_batches, len(data_loader))  # 否则，使用指定数量或数据加载器中的最小批次数量
+
+    for i, (input_batch, target_batch) in enumerate(data_loader):  # 遍历数据加载器
+        if i < num_batches:  # 检查是否达到指定的批次数量
+            input_batch, target_batch = input_batch.to(device), target_batch.to(device)  # 将输入和目标数据移动到指定设备
+            
+            with torch.no_grad():  # 在此块中禁用梯度计算，以节省内存和加快计算
+                logits = model(input_batch)[:, -1, :]  # 通过模型获取 logits，并选择最后一个时间步的输出
+            predicted_labels = torch.argmax(logits, dim = -1)  # 获取预测标签
+
+            num_examples += target_batch.shape[0]  # 累加样本总数
+            correct_predictions += (predicted_labels == target_batch).sum().item()  # 累加正确预测数
+        else:
+            break  # 如果达到指定的批次数量，则停止循环
+    
+    return correct_predictions / num_examples  # 返回准确率
+
+def calc_loss_batch(input_batch, target_batch, model, device):
+    """
+    计算单个批次的交叉熵损失。
+
+    Args:
+        input_batch (torch.Tensor): 输入数据批次。
+        target_batch (torch.Tensor): 目标标签批次。
+        model (nn.Module): PyTorch 模型。
+        device (torch.device): 模型和数据所在的设备。
+
+    Returns:
+        torch.Tensor: 计算出的损失值。
+    """
+    input_batch, target_batch = input_batch.to(device), target_batch.to(device)  # 将输入和目标数据移动到指定设备
+    logits = model(input_batch)[:, -1, :]  # 通过模型获取 logits，并选择最后一个时间步的输出
+    loss = torch.nn.functional.cross_entropy(logits, target_batch)  # 计算交叉熵损失
+    return loss
+
+def calc_loss_loader(data_loader, model, device, num_batches=None):
+    """
+    计算模型在给定数据加载器上的平均损失。
+
+    Args:
+        data_loader (DataLoader): 用于加载数据的 PyTorch DataLoader。
+        model (nn.Module): 要评估的 PyTorch 模型。
+        device (torch.device): 模型和数据所在的设备。
+        num_batches (int, optional): 要处理的批次数量。如果为 None，则处理所有批次。
+
+    Returns:
+        float: 模型的平均损失。
+    """
+    total_loss = 0.  # 初始化总损失
+    if len(data_loader) == 0:
+        return float("nan")  # 如果数据加载器为空，返回 NaN
+    elif num_batches is None:
+        num_batches = len(data_loader)  # 如果未指定批次数量，则使用数据加载器中的所有批次
+    else:
+        num_batches = min(num_batches, len(data_loader))  # 否则，使用指定数量或数据加载器中的最小批次数量
+    for i, (input_batch, target_batch) in enumerate(data_loader):  # 遍历数据加载器
+        if i < num_batches:  # 检查是否达到指定的批次数量
+            loss = calc_loss_batch(input_batch, target_batch, model, device)  # 计算当前批次的损失
+            total_loss += loss.item()  # 累加损失
+        else:
+            break  # 如果达到指定的批次数量，则停止循环
+    return total_loss / num_batches  # 返回平均损失
+
 if __name__ == '__main__':
+
     # 定义模型下载路径和模型名称
     download_path = r"/storage/jiangfei/LLM-From-Scratch/weight"
     model_name = "gpt2" # 或者 "gpt2-large", "gpt2-medium", "gpt2-xl"
-    
-    # 禁用代理
-    os.environ.pop('HTTP_PROXY', None)
-    os.environ.pop('HTTPS_PROXY', None)
-    os.environ.pop('http_proxy', None)
-    os.environ.pop('https_proxy', None)
     
     # 从预训练模型加载 tokenizer
     tokenizer = GPT2Tokenizer.from_pretrained(model_name, cache_dir=download_path)
@@ -241,6 +334,12 @@ if __name__ == '__main__':
     # 加载 Hugging Face 的 GPT2LMHeadModel
     model = GPTmodel(BASE_CONFIG)
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if torch.cuda.device_count() > 1:
+        logging.info(f"Using {torch.cuda.device_count()} GPUs!")
+        model = nn.DataParallel(model, device_ids=[0, 1, 2])
+
+    model.to(device)
     #冻结模型
     for param in model.parameters():
         param.requires_grad = False
@@ -285,10 +384,27 @@ if __name__ == '__main__':
     # # 将生成的 token ID 转换回文本并打印
     # print(ids_to_text(token_ids, tokenizer))
 
-    inputs = tokenizer.encode("Do you have time")
-    inputs = torch.tensor(inputs).unsqueeze(0)
-    print("Inputs :", inputs)
-    print("Input dimension :", inputs.shape)
+    #测试
+    # inputs = tokenizer.encode("Do you have time")
+    # inputs = torch.tensor(inputs).unsqueeze(0)
+    # print("Inputs :", inputs)
+    # print("Input dimension :", inputs.shape)
+    # with torch.no_grad():
+    #     outputs = model(inputs)
+    # print("Output dimension :", outputs.shape)
+
+    #准确率
+    train_accuracy = calc_accuracy_loader(train_loader, model, device, num_batches= 10)
+    var_accuracy = calc_accuracy_loader(val_loader, model, device, num_batches= 10)
+    test_accuracy = calc_accuracy_loader(test_loader, model, device, num_batches= 10)
+    print(f"Train accuracy: {train_accuracy*100:.2f}")
+    print(f"Validation accuracy: {var_accuracy*100:.2f}")
+    print(f"Test accuracy: {test_accuracy*100:.2f}")
+
     with torch.no_grad():
-        outputs = model(inputs)
-    print("Output dimension :", outputs.shape)
+        train_loss = calc_loss_loader(train_loader, model, device, num_batches=5)
+        val_loss = calc_loss_loader(val_loader, model, device, num_batches=5)
+        test_loss = calc_loss_loader(test_loader, model, device, num_batches=5)
+    print(f"Train loss: {train_loss:.4f}")
+    print(f"Validation loss: {val_loss:.4f}")
+    print(f"Test loss: {test_loss:.4f}")
