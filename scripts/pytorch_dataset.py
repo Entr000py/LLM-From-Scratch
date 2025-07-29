@@ -314,21 +314,38 @@ def train_classifier_simple(model, train_loader, val_loader, optimizer, device, 
     return train_losses, val_losses, train_accs, val_accs, example_seen
 
 def classify_review(text, model, tokenizer, device, max_length = None, pad_token_id = 50256):
-    model.eval()
+    """
+    对给定的文本评论进行分类（垃圾邮件或非垃圾邮件）。
 
-    input_ids = tokenizer.encode(text)
+    Args:
+        text (str): 要分类的文本评论。
+        model (nn.Module): 用于分类的 PyTorch 模型。
+        tokenizer: 用于编码文本的 tokenizer 对象。
+        device (torch.device): 模型和数据所在的设备（例如 'cpu' 或 'cuda'）。
+        max_length (int, optional): 编码文本的最大长度。如果为 None，则使用模型支持的最大上下文长度。
+        pad_token_id (int, optional): 用于填充短序列的 token ID。默认为 50256。
+
+    Returns:
+        str: 分类结果，"spam" 表示垃圾邮件，"not spam" 表示非垃圾邮件。
+    """
+    model.eval()  # 将模型设置为评估模式
+
+    input_ids = tokenizer.encode(text)  # 使用 tokenizer 对文本进行编码
+    # 处理 DataParallel 模型，获取实际的模型实例
     model_to_use = model.module if isinstance(model, nn.DataParallel) else model
+    # 获取模型支持的上下文长度
     supported_context_length = model_to_use.pos_emb.weight.shape[1]
 
-    input_ids = input_ids[:min(max_length, supported_context_length)]
-    input_ids += [pad_token_id] * (max_length - len(input_ids))
-    input_tensor = torch.tensor(input_ids, device = device).unsqueeze(0)
+    # 截断或填充输入 ID 到指定或支持的最大长度
+    input_ids = input_ids[:min(max_length, supported_context_length) if max_length is not None else supported_context_length]
+    input_ids += [pad_token_id] * (max_length - len(input_ids)) if max_length is not None else []
+    input_tensor = torch.tensor(input_ids, device = device).unsqueeze(0)  # 将输入 ID 转换为 Tensor 并添加批次维度
 
-    with torch.no_grad():
-        logits = model(input_tensor)[:, -1, :]
-    predicted_label = torch.argmax(logits, dim = -1).item()
+    with torch.no_grad():  # 在此块中禁用梯度计算，以节省内存和加快计算
+        logits = model(input_tensor)[:, -1, :]  # 通过模型获取 logits，并选择最后一个时间步的输出
+    predicted_label = torch.argmax(logits, dim = -1).item()  # 获取预测标签
 
-    return "spam" if predicted_label == 1 else "not spam"
+    return "spam" if predicted_label == 1 else "not spam"  # 根据预测标签返回分类结果
 
 if __name__ == '__main__':
 
@@ -511,4 +528,5 @@ if __name__ == '__main__':
         text_1, model, tokenizer, device, max_length=train_dataset.max_length
     ))
 
+    #保存模型
     torch.save(model.state_dict(), "review_classifier.pth")
