@@ -50,9 +50,9 @@ def format_input(entry):
 		str: 格式化后的输入文本。
 	"""
 	instruction_text = (
-		f"Below is an instruction that describes a task. "
-        f"Write a response that appropriately completes the request."
-        f"\n\n### Instruction:\n{entry['instruction']}"		
+		"Below is an instruction that describes a task. "
+        "Write a response that appropriately completes the request."
+        f"\n\n### Instruction:\n{entry['instruction']}"
 	)
 	input_text = f"\n\n### Input:\n{entry['input']}" if entry["input"] else ""
 	return instruction_text + input_text
@@ -111,7 +111,7 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu"
     这个版本是经过修正的，可以正确处理目标序列和损失掩码。
 
     Args:
-        batch (list): 包含编码文本（作为Python列表）的批次数据。
+        batch (list of dict): 包含 'encoded' (list of int) 和 'prompt_len' (int) 的批次数据。
         pad_token_id (int): 用于填充的token ID。
         ignore_index (int): 在计算损失时要忽略的索引。
         device (str): 将张量移动到的设备（"cpu"或"cuda"）。
@@ -120,27 +120,35 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu"
     Returns:
         tuple: 包含输入张量 (inputs) 和目标张量 (targets) 的元组。
     """
+    # 从批次中提取编码文本和提示长度
+    encoded_items = [item['encoded'] for item in batch]
+    prompt_lens = [item['prompt_len'] for item in batch]
+
     # 1. 如果指定了最大长度，首先对所有序列进行截断
     if allow_max_length is not None:
-        batch = [item[:allow_max_length] for item in batch]
+        encoded_items = [item[:allow_max_length] for item in encoded_items]
 
     # 2. 找到当前批次中最长序列的长度
-    max_len = max(len(item) for item in batch)
+    max_len = max(len(item) for item in encoded_items)
 
     # 3. 对所有序列进行填充，使它们达到相同的长度 (max_len)
     padded_batch = [
-        item + [pad_token_id] * (max_len - len(item)) for item in batch
+        item + [pad_token_id] * (max_len - len(item)) for item in encoded_items
     ]
     padded_tensor = torch.tensor(padded_batch, dtype=torch.long)
 
     # 4. 创建输入和目标
-    # 输入是序列的前n-1个token
     inputs = padded_tensor[:, :-1].contiguous()
-    # 目标是序列的后n-1个token（即输入向左移动一位）
     targets = padded_tensor[:, 1:].contiguous()
 
-    # 5. 创建损失掩码：我们不希望计算填充位置的损失
-    # 因此，将目标中所有等于 pad_token_id 的位置替换为 ignore_index
+    # 5. 创建损失掩码
+    for i, prompt_len in enumerate(prompt_lens):
+        # 确保掩码长度不超过目标张量的实际长度
+        mask_len = min(prompt_len - 1, inputs.shape[1])
+        if mask_len > 0:
+            targets[i, :mask_len] = ignore_index
+    
+    # 屏蔽所有填充部分的token
     targets[targets == pad_token_id] = ignore_index
 
     # 6. 将张量移动到指定设备
