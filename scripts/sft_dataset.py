@@ -72,6 +72,7 @@ class InstructionDataset(Dataset):
 		"""
 		self.data = data
 		self.encoded_texts = []
+		self.prompt_lens = []
 		# 获取EOS token的ID，对于GPT-2是50256
 		eos_token_id = tokenizer.eot_token
 		for entry in data:
@@ -84,6 +85,9 @@ class InstructionDataset(Dataset):
 			encoded.append(eos_token_id)
 			self.encoded_texts.append(encoded)
 
+			# 计算并存储prompt_len
+			prompt_encoded = tokenizer.encode(instruction_plus_input)
+			self.prompt_lens.append(len(prompt_encoded))
 	def __len__(self):
 		"""
 		返回数据集中条目的数量。
@@ -101,9 +105,12 @@ class InstructionDataset(Dataset):
 			index (int): 要检索的条目的索引。
 
 		Returns:
-			torch.Tensor: 编码后的文本张量。
+			dict: 包含 'encoded' (torch.Tensor) 和 'prompt_len' (int) 的字典。
 		"""
-		return self.encoded_texts[index]
+		return {
+			'encoded': torch.tensor(self.encoded_texts[index], dtype=torch.long),
+			'prompt_len': self.prompt_lens[index]
+		}
 
 def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu", allow_max_length=None):
     """
@@ -111,7 +118,8 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu"
     这个版本是经过修正的，可以正确处理目标序列和损失掩码。
 
     Args:
-        batch (list of dict): 包含 'encoded' (list of int) 和 'prompt_len' (int) 的批次数据。
+        batch (list of dict or list of list): 包含 'encoded' (list of int) 和 'prompt_len' (int) 的批次数据。
+                                              如果是列表，则应为 [encoded_tensor, prompt_len] 的形式。
         pad_token_id (int): 用于填充的token ID。
         ignore_index (int): 在计算损失时要忽略的索引。
         device (str): 将张量移动到的设备（"cpu"或"cuda"）。
@@ -121,8 +129,14 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu"
         tuple: 包含输入张量 (inputs) 和目标张量 (targets) 的元组。
     """
     # 从批次中提取编码文本和提示长度
-    encoded_items = [item['encoded'] for item in batch]
-    prompt_lens = [item['prompt_len'] for item in batch]
+    # 检查 batch 中的 item 是字典还是列表/元组
+    if isinstance(batch[0], dict):
+        encoded_items = [item['encoded'] for item in batch]
+        prompt_lens = [item['prompt_len'] for item in batch]
+    else:
+        # 假设 item 是一个列表或元组，形式为 [encoded_tensor, prompt_len]
+        encoded_items = [item[0] for item in batch]
+        prompt_lens = [item[1] for item in batch]
 
     # 1. 如果指定了最大长度，首先对所有序列进行截断
     if allow_max_length is not None:
