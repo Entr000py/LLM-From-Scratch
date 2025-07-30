@@ -72,11 +72,17 @@ class InstructionDataset(Dataset):
 		"""
 		self.data = data
 		self.encoded_texts = []
+		# 获取EOS token的ID，对于GPT-2是50256
+		eos_token_id = tokenizer.eot_token
 		for entry in data:
 			instruction_plus_input = format_input(entry)
 			response_text = f"\n\n### Response:\n{entry['output']}"
 			full_text = instruction_plus_input + response_text
-			self.encoded_texts.append(tokenizer.encode(full_text))
+			
+			# 编码文本并手动添加EOS token
+			encoded = tokenizer.encode(full_text)
+			encoded.append(eos_token_id)
+			self.encoded_texts.append(encoded)
 
 	def __len__(self):
 		"""
