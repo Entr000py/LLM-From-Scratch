@@ -326,4 +326,19 @@ if __name__ == "__main__":
 	end_time = time.time()
 	execution_time = (end_time - start_time) / 60
 	print(f"Training completed in {execution_time:.2f} minutes.")
-	
+
+	for entry in test_data[:3]:
+		input_text = format_input(entry)
+		token_ids = generate(
+			model = model,
+			idx = text_to_ids(input_text, tokenizer).to(device),
+			max_new_tokens= 256,
+			context_size = BASE_CONFIG["context_length"],
+			eos_id= 50256
+		)
+		generated_text = text_to_ids(input_text, tokenizer)
+		response_text = generated_text[len(input_text):].replace("### Response:","").strip()
+		print(input_text)
+		print(f"\nCorrect response:\n>> {entry['output']}")
+		print(f"\nModel response:\n>> {response_text.strip()}")
+		print("-------------------------------------")	
