@@ -105,143 +105,51 @@ class InstructionDataset(Dataset):
 		"""
 		return self.encoded_texts[index]
 
-def custom_collate_draft_1(batch, pad_token_id = 50256, device = "cpu"):
-	"""
-	自定义collate函数，用于对批次数据进行填充和堆叠。
-
-	Args:
-		batch (list): 包含编码文本的批次数据列表。
-		pad_token_id (int, optional): 用于填充的token ID。默认为50256。
-		device (str, optional): 将张量移动到的设备（例如"cpu"或"cuda"）。默认为"cpu"。
-
-	Returns:
-		torch.Tensor: 填充并堆叠后的输入张量。
-	"""
-	# 计算批次中所有序列的最大长度。
-	# 这里的 +1 是为了在每个序列末尾添加一个额外的pad_token_id，作为序列结束标记或用于后续处理。
-	batch_max_length = max(len(item) + 1 for item in batch)
-	inputs_lst = []
-
-	# 遍历批次中的每个编码文本序列
-	for item in batch:
-		new_item = item.copy() # 创建当前序列的副本，避免修改原始数据
-		new_item += [pad_token_id] # 在序列末尾添加一个pad_token_id，作为序列结束标记
-
-		# 对序列进行填充，使其达到批次的最大长度。
-		# 使用pad_token_id进行填充。
-		padded = new_item + [pad_token_id] * (batch_max_length - len(new_item))
-		
-		# 将填充后的序列转换为PyTorch张量。
-		inputs = torch.tensor(padded[:-1])
-		inputs_lst.append(inputs) # 将处理后的张量添加到列表中
-
-	# 将所有填充后的输入张量堆叠成一个单一的张量，并将其移动到指定的设备（CPU或CUDA）
-	inputs_tensor = torch.stack(inputs_lst).to(device)
-	return inputs_tensor
-
-def custom_collate_draft_2(batch, pad_token_id = 50256, device = "cpu"):
-	"""
-	自定义collate函数，用于对批次数据进行填充和堆叠，并生成输入和目标张量。
-
-	Args:
-		batch (list): 包含编码文本的批次数据列表。
-		pad_token_id (int, optional): 用于填充的token ID。默认为50256。
-		device (str, optional): 将张量移动到的设备（例如"cpu"或"cuda"）。默认为"cpu"。
-
-	Returns:
-		tuple: 包含填充并堆叠后的输入张量和目标张量的元组。
-	"""
-	# 计算批次中所有序列的最大长度。
-	# 这里的 +1 是为了在每个序列末尾添加一个额外的pad_token_id，作为序列结束标记或用于后续处理。
-	batch_max_length = max(len(item) + 1 for item in batch)
-	inputs_lst, targets_lst = [], []
-
-	for item in batch:
-		new_item = item.copy()
-		new_item += [pad_token_id] # 在序列末尾添加一个pad_token_id，作为序列结束标记
-
-		# 对序列进行填充，使其达到批次的最大长度。使用pad_token_id进行填充。
-		padded = new_item + [pad_token_id] * (batch_max_length - len(new_item))
-		#[:-1]: 表示从列表的开头到倒数第二个元素（不包括最后一个元素）
-		inputs = torch.tensor(padded[:-1])
-		# targets[1:] 表示目标序列从第二个token开始，是输入的下一个token。
-		targets = torch.tensor(padded[1:])
-		
-		inputs_lst.append(inputs) # 将处理后的输入张量添加到列表中
-		targets_lst.append(targets) # 将处理后的目标张量添加到列表中
-
-	inputs_tensor = torch.stack(inputs_lst).to(device)
-	targets_tensor = torch.stack(targets_lst).to(device)
-
-	return inputs_tensor, targets_tensor # 返回最终的输入和目标张量
-
-def custom_collate_draft_fn(batch, pad_token_id=50256, ignore_index=-100, allow_max_length=None, device="cpu"):
+def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu", allow_max_length=None):
     """
-    自定义collate函数，用于对批次数据进行填充、堆叠，并处理目标序列中的填充部分。
-    此版本经过优化，修正了掩码逻辑并提高了截断效率。
+    自定义的collate函数，用于对批次数据进行填充和处理，为模型训练准备输入和目标。
+    这个版本是经过修正的，可以正确处理目标序列和损失掩码。
 
     Args:
-        batch (list): 包含编码文本的批次数据列表。
-        pad_token_id (int, optional): 用于填充的token ID。默认为50256。
-        ignore_index (int, optional): 在计算损失时要忽略的索引。默认为-100。
-        allow_max_length (int, optional): 允许的最大序列长度。如果设置，序列将被截断。默认为None。
-        device (str, optional): 将张量移动到的设备（例如"cpu"或"cuda"）。默认为"cpu"。
+        batch (list): 包含编码文本（作为Python列表）的批次数据。
+        pad_token_id (int): 用于填充的token ID。
+        ignore_index (int): 在计算损失时要忽略的索引。
+        device (str): 将张量移动到的设备（"cpu"或"cuda"）。
+        allow_max_length (int, optional): 允许的最大序列长度。如果设置，序列将被截断。
 
     Returns:
-        tuple: 包含填充并堆叠后的输入张量和目标张量的元组。
+        tuple: 包含输入张量 (inputs) 和目标张量 (targets) 的元组。
     """
     # 1. 如果指定了最大长度，首先对所有序列进行截断
     if allow_max_length is not None:
         batch = [item[:allow_max_length] for item in batch]
 
-    # 2. 计算批次中所有序列的最大长度
-    batch_max_length = max(len(item) for item in batch)
-    
-    inputs_list, targets_list = [], []
+    # 2. 找到当前批次中最长序列的长度
+    max_len = max(len(item) for item in batch)
 
-    for item in batch:
-        # 3. 准备输入和目标序列
-        # 输入是原始序列，目标是向左移动一位的序列
-        input_ids = item
-        target_ids = item[1:]
+    # 3. 对所有序列进行填充，使它们达到相同的长度 (max_len)
+    padded_batch = [
+        item + [pad_token_id] * (max_len - len(item)) for item in batch
+    ]
+    padded_tensor = torch.tensor(padded_batch, dtype=torch.long)
 
-        # 4. 对输入和目标进行填充
-        # 输入序列填充到 batch_max_length
-        pad_len_input = batch_max_length - len(input_ids)
-        inputs = torch.tensor(input_ids + [pad_token_id] * pad_len_input)
+    # 4. 创建输入和目标
+    # 输入是序列的前n-1个token
+    inputs = padded_tensor[:, :-1].contiguous()
+    # 目标是序列的后n-1个token（即输入向左移动一位）
+    targets = padded_tensor[:, 1:].contiguous()
 
-        # 目标序列填充到 batch_max_length - 1，并添加一个结尾token
-        pad_len_target = (batch_max_length - 1) - len(target_ids)
-        targets = torch.tensor(target_ids + [pad_token_id] * pad_len_target)
+    # 5. 创建损失掩码：我们不希望计算填充位置的损失
+    # 因此，将目标中所有等于 pad_token_id 的位置替换为 ignore_index
+    targets[targets == pad_token_id] = ignore_index
 
-        # 5. 创建掩码，将所有填充位置在目标中设置为 ignore_index
-        # 这是为了在计算损失时忽略它们
-        mask = targets == pad_token_id
-        targets[mask] = ignore_index
-        
-        inputs_list.append(inputs)
-        targets_list.append(targets)
-
-    # 6. 将列表堆叠成张量并移动到指定设备
-    # 注意：这里我们创建的inputs和targets长度是一致的
-    # 模型结构中，输入序列的最后一个token的输出会对应目标的最后一个token
-    # 但由于目标中填充位被忽略，所以这是正确的
-    inputs_tensor = torch.stack(inputs_list).to(device)
-    targets_tensor = torch.stack(targets_list).to(device)
-    
-    # 为了匹配模型输入，我们需要确保输入和目标的长度相同
-    # 模型的输入是 `inputs_tensor`，期望的输出是 `targets_tensor`
-    # 在典型的自回归模型中，`model(inputs_tensor)` 的输出形状会与 `inputs_tensor` 相同
-    # 因此，我们需要调整 `targets_tensor` 来匹配
-    final_targets = torch.full_like(inputs_tensor, ignore_index)
-    final_targets[:, :-1] = targets_tensor
-    
-    return inputs_tensor, final_targets
+    # 6. 将张量移动到指定设备
+    return inputs.to(device), targets.to(device)
 
 
 if __name__ == "__main__":
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-	cunstomized_collate_fn = partial(custom_collate_draft_fn, device=device, allow_max_length = 1024)
+	cunstomized_collate_fn = partial(custom_collate_fn, device=device, allow_max_length = 1024)
 	
 	num_workers = 0
 	batch_size = 8
