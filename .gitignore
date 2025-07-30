@@ -18,9 +18,12 @@ dist/
 build/
 *.egg-info/
 weight/
+dataset/
 
 *.zip
 *.png
 *.jpg
 *.ssh
 *.pth
+*.filepart
+*.png
