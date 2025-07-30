@@ -3,6 +3,7 @@ import os
 import urllib.request
 import torch
 from torch.utils.data import DataLoader, Dataset
+from torch.nn.utils.rnn import pad_sequence
 import tiktoken
 from functools import partial
 from GPTmodel import GPTmodel
@@ -142,14 +143,9 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu"
     if allow_max_length is not None:
         encoded_items = [item[:allow_max_length] for item in encoded_items]
 
-    # 2. 找到当前批次中最长序列的长度
-    max_len = max(len(item) for item in encoded_items)
-
-    # 3. 对所有序列进行填充，使它们达到相同的长度 (max_len)
-    padded_batch = [
-        item + [pad_token_id] * (max_len - len(item)) for item in encoded_items
-    ]
-    padded_tensor = torch.tensor(padded_batch, dtype=torch.long)
+    # 2. 使用 pad_sequence 对所有序列进行填充，使它们达到相同的长度
+    # pad_sequence 需要序列是 Tensor 列表，并且填充到批次中最长序列的长度
+    padded_tensor = pad_sequence(encoded_items, batch_first=True, padding_value=pad_token_id)
 
     # 4. 创建输入和目标
     inputs = padded_tensor[:, :-1].contiguous()
