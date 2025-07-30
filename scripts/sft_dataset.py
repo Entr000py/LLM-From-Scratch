@@ -242,7 +242,7 @@ if __name__ == "__main__":
 	torch.manual_seed(123)
 	tokenizer = tiktoken.get_encoding("gpt2")
 
-	path = "C:/Users/13106/Desktop/LLM-From-Scratch/dataset/instruction-data.json"
+	path = r"/storage/jiangfei/LLM-From-Scratch/dataset/instruction-data.json"
 	with open(path, 'r', encoding='utf-8') as f:
 		data = json.load(f)
 	desired_response = f"\n\n### Response:\n{data[50]['output']}"
@@ -303,7 +303,7 @@ if __name__ == "__main__":
 	BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
 
 	model_size = CHOOSE_MODEL.split(" ")[-1].lstrip("(").rstrip(")")
-	settings, params = download_and_load_gpt2(model_size = model_size, models_dir= r"D:\Program Files (x86)\weight")
+	settings, params = download_and_load_gpt2(model_size = model_size, models_dir= r"/storage/jiangfei/LLM-From-Scratch/weight")
 	model = GPTmodel(BASE_CONFIG)
 	load_weights_into_gpt(model, params)
 
@@ -320,7 +320,7 @@ if __name__ == "__main__":
 
 	train_losses, val_losses, track_tokens_seen = train_model_simple(
 		model, train_loader, val_loader,optimizer, device,
-		num_epochs=num_epochs, eval_iter= 5, start_context= format_input(val_data[0]), tokenizer=tokenizer
+		num_epochs=num_epochs, eval_iter= 5, start_context= format_input(val_data[0]), tokenizer=tokenizer, eval_freq=5
 	)
 
 	end_time = time.time()
