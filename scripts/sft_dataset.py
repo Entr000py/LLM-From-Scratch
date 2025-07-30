@@ -2,8 +2,16 @@ import json
 import os
 import urllib.request
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 import tiktoken
+from functools import partial
+from GPTmodel import GPTmodel
+from pytorch_dataset import load_weights_into_gpt
+from gpt_download import download_and_load_gpt2
+from temperature_scaling import generate
+from generate_text import text_to_ids, ids_to_text
+from train_model import calc_loss_loader, train_model_simple
+import time
 
 
 
@@ -161,70 +169,83 @@ def custom_collate_draft_2(batch, pad_token_id = 50256, device = "cpu"):
 
 	return inputs_tensor, targets_tensor # 返回最终的输入和目标张量
 
-def custom_collate_draft_fn(batch, pad_token_id = 50256, ignore_index = -100, allow_max_length = None, device = "cpu"):
-	"""
-	自定义collate函数，用于对批次数据进行填充、堆叠，并处理目标序列中的填充部分。
+def custom_collate_draft_fn(batch, pad_token_id=50256, ignore_index=-100, allow_max_length=None, device="cpu"):
+    """
+    自定义collate函数，用于对批次数据进行填充、堆叠，并处理目标序列中的填充部分。
+    此版本经过优化，修正了掩码逻辑并提高了截断效率。
 
-	Args:
-		batch (list): 包含编码文本的批次数据列表。
-		pad_token_id (int, optional): 用于填充的token ID。默认为50256。
-		ignore_index (int, optional): 在计算损失时要忽略的索引。默认为100。
-		allow_max_length (int, optional): 允许的最大序列长度。如果设置，序列将被截断。默认为None。
-		device (str, optional): 将张量移动到的设备（例如"cpu"或"cuda"）。默认为"cpu"。
+    Args:
+        batch (list): 包含编码文本的批次数据列表。
+        pad_token_id (int, optional): 用于填充的token ID。默认为50256。
+        ignore_index (int, optional): 在计算损失时要忽略的索引。默认为-100。
+        allow_max_length (int, optional): 允许的最大序列长度。如果设置，序列将被截断。默认为None。
+        device (str, optional): 将张量移动到的设备（例如"cpu"或"cuda"）。默认为"cpu"。
 
-	Returns:
-		tuple: 包含填充并堆叠后的输入张量和目标张量的元组。
-	"""
-	# 这里的 +1 是为了在每个序列末尾添加一个额外的pad_token_id，作为序列结束标记或用于后续处理。
-	batch_max_length = max(len(item) + 1 for item in batch)
-	inputs_list, targets_list = [], []
+    Returns:
+        tuple: 包含填充并堆叠后的输入张量和目标张量的元组。
+    """
+    # 1. 如果指定了最大长度，首先对所有序列进行截断
+    if allow_max_length is not None:
+        batch = [item[:allow_max_length] for item in batch]
 
-	for item in batch:
-		new_item = item.copy()
-		new_item += [pad_token_id] # 在序列末尾添加一个pad_token_id，作为序列结束标记
+    # 2. 计算批次中所有序列的最大长度
+    batch_max_length = max(len(item) for item in batch)
+    
+    inputs_list, targets_list = [], []
 
-		# 使用pad_token_id进行填充。
-		padded = new_item + [pad_token_id] * (batch_max_length - len(new_item))
-		
-		# inputs[:-1] 表示输入序列是原始序列除了最后一个token。
-		inputs = torch.tensor(padded[:-1])
-		# targets[1:] 表示目标序列从第二个token开始，是输入的下一个token。
-		targets = torch.tensor(padded[1:])
+    for item in batch:
+        # 3. 准备输入和目标序列
+        # 输入是原始序列，目标是向左移动一位的序列
+        input_ids = item
+        target_ids = item[1:]
 
-		# 创建一个掩码，标记目标序列中等于pad_token_id的位置。
-		mask = targets == pad_token_id
-		# 找到掩码中非零（即为True）的索引，并移除维度为1的维度。
-		indices = torch.nonzero(mask).squeeze()
-		# 如果找到的填充索引数量大于1（即存在多个填充token），
-		# 则将从第二个填充token开始的所有填充token的索引设置为ignore_index。
-		# 这样做是为了在计算损失时忽略这些填充token，避免它们对模型训练产生影响。
-		if indices.numel() > 1:
-			targets[indices[1:]] = ignore_index
+        # 4. 对输入和目标进行填充
+        # 输入序列填充到 batch_max_length
+        pad_len_input = batch_max_length - len(input_ids)
+        inputs = torch.tensor(input_ids + [pad_token_id] * pad_len_input)
 
-		if allow_max_length is not None:
-			inputs = inputs[:allow_max_length]
-			targets = targets[:allow_max_length]
-		
-		inputs_list.append(inputs)
-		targets_list.append(targets)
+        # 目标序列填充到 batch_max_length - 1，并添加一个结尾token
+        pad_len_target = (batch_max_length - 1) - len(target_ids)
+        targets = torch.tensor(target_ids + [pad_token_id] * pad_len_target)
 
-	inputs_tensor = torch.stack(inputs_list).to(device)
-	targets_tensor = torch.stack(targets_list).to(device)
+        # 5. 创建掩码，将所有填充位置在目标中设置为 ignore_index
+        # 这是为了在计算损失时忽略它们
+        mask = targets == pad_token_id
+        targets[mask] = ignore_index
+        
+        inputs_list.append(inputs)
+        targets_list.append(targets)
 
-	return inputs_tensor, targets_tensor
+    # 6. 将列表堆叠成张量并移动到指定设备
+    # 注意：这里我们创建的inputs和targets长度是一致的
+    # 模型结构中，输入序列的最后一个token的输出会对应目标的最后一个token
+    # 但由于目标中填充位被忽略，所以这是正确的
+    inputs_tensor = torch.stack(inputs_list).to(device)
+    targets_tensor = torch.stack(targets_list).to(device)
+    
+    # 为了匹配模型输入，我们需要确保输入和目标的长度相同
+    # 模型的输入是 `inputs_tensor`，期望的输出是 `targets_tensor`
+    # 在典型的自回归模型中，`model(inputs_tensor)` 的输出形状会与 `inputs_tensor` 相同
+    # 因此，我们需要调整 `targets_tensor` 来匹配
+    final_targets = torch.full_like(inputs_tensor, ignore_index)
+    final_targets[:, :-1] = targets_tensor
+    
+    return inputs_tensor, final_targets
 
 
 if __name__ == "__main__":
+	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	cunstomized_collate_fn = partial(custom_collate_draft_fn, device=device, allow_max_length = 1024)
+	
+	num_workers = 0
+	batch_size = 8
+	torch.manual_seed(123)
 	tokenizer = tiktoken.get_encoding("gpt2")
-	file_path = "C:/Users/13106/Desktop/LLM-From-Scratch/dataset/instruction-data.json"
-	url = "https://raw.githubusercontent.com/rasbt/LLMs-from-scratch/main/ch07/01_mainchapter-code/instruction-data.json"
 
 	path = "C:/Users/13106/Desktop/LLM-From-Scratch/dataset/instruction-data.json"
 	with open(path, 'r', encoding='utf-8') as f:
 		data = json.load(f)
-	model_input = format_input(data[50])
 	desired_response = f"\n\n### Response:\n{data[50]['output']}"
-	print(model_input + desired_response)
 
 	train_portion = int(len(data) * 0.85)
 	test_portion = int(len(data) * 0.1)
@@ -234,16 +255,75 @@ if __name__ == "__main__":
 	test_data = data[train_portion:train_portion + test_portion]
 	val_data = data[train_portion + test_portion:]
 
-	inputs_1 = [0, 1, 2, 3, 4]
-	inputs_2 = [5, 6]
-	inputs_3 = [7, 8, 9]
-	batch = (
-		inputs_1,
-		inputs_2,
-		inputs_3
+	train_dataset = InstructionDataset(train_data, tokenizer)
+	train_loader = DataLoader(
+		train_dataset,
+		batch_size=batch_size,
+		collate_fn=cunstomized_collate_fn,
+		shuffle=True,
+		drop_last=True,
+		num_workers=num_workers
 	)
-	# print(custom_collate_draft_1(batch))
 
-	inputs, targets = custom_collate_draft_fn(batch)
-	print(inputs)
-	print(targets)
+	val_dataset = InstructionDataset(val_data, tokenizer)
+	val_loader = DataLoader(
+		val_dataset,
+		batch_size=batch_size,
+		collate_fn=cunstomized_collate_fn,
+		shuffle=False,
+		drop_last=False,
+		num_workers=num_workers
+	)
+
+	test_dataset = InstructionDataset(test_data, tokenizer)
+	test_loader = DataLoader(
+		test_dataset,
+		batch_size=batch_size,
+		collate_fn=cunstomized_collate_fn,
+		shuffle=False,
+		drop_last=False,
+		num_workers=num_workers
+	)
+
+	BASE_CONFIG = {
+		"vocab_size": 50257, # Vocabulary size
+		"context_length": 1024, # Context length
+		"drop_rate": 0.0, # Dropout rate
+		"qkv_bias": True # Query-key-value bias
+	}
+
+	model_configs = {
+		"gpt2-small (124M)": {"emb_dim": 768, "n_layers": 12, "n_heads": 12},
+		"gpt2-medium (355M)": {"emb_dim": 1024, "n_layers": 24, "n_heads": 16},
+		"gpt2-large (774M)": {"emb_dim": 1280, "n_layers": 36, "n_heads": 20},
+		"gpt2-xl (1558M)": {"emb_dim": 1600, "n_layers": 48, "n_heads": 25},
+	}	
+
+	CHOOSE_MODEL = "gpt2-medium (355M)"
+	BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
+
+	model_size = CHOOSE_MODEL.split(" ")[-1].lstrip("(").rstrip(")")
+	settings, params = download_and_load_gpt2(model_size = model_size, models_dir= r"D:\Program Files (x86)\weight")
+	model = GPTmodel(BASE_CONFIG)
+	load_weights_into_gpt(model, params)
+
+	model.to(device)
+	with torch.no_grad():
+		train_loss = calc_loss_loader(train_loader, model, device, num_batches=5)
+		val_loss = calc_loss_loader(val_loader, model, device, num_batches=5)
+	print("Training Loss:", train_loss)
+	print("Validation Loss:", val_loss)
+
+	start_time = time.time()
+	optimizer = torch.optim.AdamW(model.parameters(), lr=0.00005, weight_decay=0.1)
+	num_epochs = 2
+
+	train_losses, val_losses, track_tokens_seen = train_model_simple(
+		model, train_loader, val_loader,optimizer, device,
+		num_epochs=num_epochs, eval_iter= 5, start_context= format_input(val_data[0]), tokenizer=tokenizer
+	)
+
+	end_time = time.time()
+	execution_time = (end_time - start_time) / 60
+	print(f"Training completed in {execution_time:.2f} minutes.")
+	
