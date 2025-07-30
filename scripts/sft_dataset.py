@@ -337,7 +337,8 @@ if __name__ == "__main__":
 			eos_id= 50256
 		)
 		generated_text = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0)
-		response_text = generated_text[len(input_text):].replace("### Response:","").strip()
+		generated_text_str = ids_to_text(generated_text, tokenizer)
+		response_text = generated_text_str[len(input_text):].replace("### Response:","").strip()
 		print(input_text)
 		print(f"\nCorrect response:\n>> {entry['output']}")
 		print(f"\nModel response:\n>> {response_text.strip()}")
