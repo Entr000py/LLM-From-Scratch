@@ -336,8 +336,7 @@ if __name__ == "__main__":
 			context_size = BASE_CONFIG["context_length"],
 			eos_id= 50256
 		)
-		generated_text = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0)
-		generated_text_str = ids_to_text(generated_text, tokenizer)
+		generated_text_str = ids_to_text(token_ids, tokenizer)
 		response_text = generated_text_str[len(input_text):].replace("### Response:","").strip()
 		print(input_text)
 		print(f"\nCorrect response:\n>> {entry['output']}")
