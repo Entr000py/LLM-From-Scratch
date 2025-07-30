@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 import matplotlib.pyplot as plt
 import logging
-from .temperature_scaling import generate
+from temperature_scaling import generate
 
 # 配置日志记录
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -14,10 +14,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 project_root = Path(__file__).resolve().parents[1]
 sys.path.append(str(project_root))
 
-from .GPTmodel import GPTmodel, generate_text_simple
-from .GPT_dataset_V1 import create_dataloader_v1
-from .utils import load_text_data
-from .generate_text import text_to_ids, ids_to_text
+from GPTmodel import GPTmodel, generate_text_simple
+from GPT_dataset_V1 import create_dataloader_v1
+from utils import load_text_data
+from generate_text import text_to_ids, ids_to_text
 
 # 移入的函数：损失计算
 def cal_loss_batch(input_batch, target_batch, model, device):
