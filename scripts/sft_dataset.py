@@ -4,6 +4,7 @@ import urllib.request
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.nn.utils.rnn import pad_sequence
+import torch.nn as nn
 import tiktoken
 from functools import partial
 from GPTmodel import GPTmodel
