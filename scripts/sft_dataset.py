@@ -247,7 +247,7 @@ if __name__ == "__main__":
 	print("Validation Loss:", val_loss)
 
 	start_time = time.time()
-	optimizer = torch.optim.AdamW(model.parameters(), lr=0.00005, weight_decay=0.1)
+	optimizer = torch.optim.AdamW(model.parameters(), lr=0.00001, weight_decay=0.1)
 	num_epochs = 2
 
 	train_losses, val_losses, track_tokens_seen = train_model_simple(
