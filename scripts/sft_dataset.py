@@ -251,8 +251,9 @@ if __name__ == "__main__":
 	num_epochs = 2
 
 	train_losses, val_losses, track_tokens_seen = train_model_simple(
-		model, train_loader, val_loader,optimizer, device,
-		num_epochs=num_epochs, eval_iter= 5, start_context= format_input(val_data[0]), tokenizer=tokenizer, eval_freq=5
+		model, train_loader, val_loader, optimizer, device,
+		num_epochs=num_epochs, eval_iter=5, start_context=format_input(val_data[0]), tokenizer=tokenizer, eval_freq=5,
+        patience=3, min_delta=0.001  # 添加早停参数
 	)
 
 	end_time = time.time()
