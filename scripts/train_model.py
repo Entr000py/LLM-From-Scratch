@@ -76,10 +76,40 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
         logging.info(f"Sample: {decoded_text.replace("\n", " ")}")
     model.train()
 
-# 简单的模型训练函数
-def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs, eval_freq, eval_iter, start_context, tokenizer):
+# 简单的模型训练函数，带有早停功能
+def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs,
+                       eval_freq, eval_iter, start_context, tokenizer,
+                       patience=None, min_delta=0.0):
+    """
+    训练模型的简单函数，包含早停功能。
+
+    参数:
+        model: 要训练的模型。
+        train_loader: 训练数据加载器。
+        val_loader: 验证数据加载器。
+        optimizer: 优化器。
+        device: 训练设备 ('cpu' 或 'cuda')。
+        num_epochs: 训练的总轮数。
+        eval_freq: 评估频率（以步数为单位）。
+        eval_iter: 用于评估的批次数量。
+        start_context: 用于生成示例文本的起始上下文。
+        tokenizer: 用于编码和解码文本的分词器。
+        patience (int, optional): 早停的容忍度。如果验证损失在 'patience' 次评估后没有改善，
+                                  则停止训练。如果为 None，则不使用早停。默认为 None。
+        min_delta (float, optional): 最小改进。验证损失的改善必须大于 'min_delta' 才被认为
+                                     是显著的。默认为 0.0。
+
+    返回:
+        tuple: 包含训练损失列表、验证损失列表和已见 token 数列表的元组。
+    """
     train_loss, val_loss, track_tokens_seen = [], [], []
     tokens_seen, global_step = 0, -1
+
+    # 早停初始化
+    if patience is not None:
+        best_val_loss = float('inf')
+        patience_counter = 0
+
     for epoch in range(num_epochs):
         model.train()
         for input_batch, target_batch in train_loader:
@@ -101,6 +131,22 @@ def train_model_simple(model, train_loader, val_loader, optimizer, device, num_e
                 track_tokens_seen.append(tokens_seen)
                 logging.info(f"Epoch {epoch + 1} (Step {global_step:06d}): "
                              f"Train Loss {train_loss_val:.3f}, Val Loss {val_loss_val:.3f}")
+
+                # 早停检查
+                if patience is not None:
+                    # 检查验证损失是否显著改善
+                    if val_loss_val < best_val_loss - min_delta:
+                        best_val_loss = val_loss_val
+                        patience_counter = 0  # 重置耐心计数器
+                    else:
+                        patience_counter += 1  # 增加耐心计数器
+
+                    # 如果耐心计数器达到容忍度，则早停
+                    if patience_counter >= patience:
+                        logging.info(f"Early stopping triggered after {patience} evaluations without improvement.")
+                        # 绘制损失图并返回
+                        plot_losses(track_tokens_seen, train_loss, val_loss)
+                        return train_loss, val_loss, track_tokens_seen
         
         generate_and_print_sample(model, tokenizer, device, start_context)
     
