@@ -3,3 +3,4 @@ tiktoken
 matplotlib
 pandas
 requests
+tensorflow
