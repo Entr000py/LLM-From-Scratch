@@ -267,6 +267,8 @@ if __name__ == "__main__":
 			idx = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0).to(device),
 			max_new_tokens= 256,
 			context_size = BASE_CONFIG["context_length"],
+			top_p=0.9,
+            repetition_penalty=1.2,
 			eos_id= 50256
 		)
 		generated_text_str = ids_to_text(token_ids, tokenizer)
