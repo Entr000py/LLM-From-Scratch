@@ -12,6 +12,7 @@ from gpt_download import download_and_load_gpt2
 from temperature_scaling import generate
 from generate_text import text_to_ids, ids_to_text
 from train_model import calc_loss_loader, train_model_simple
+import torch.optim.lr_scheduler as lr_scheduler  # 导入学习率调度器
 import time
 
 
@@ -166,114 +167,126 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu"
 
 
 if __name__ == "__main__":
-	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-	cunstomized_collate_fn = partial(custom_collate_fn, device=device, allow_max_length = 1024)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    cunstomized_collate_fn = partial(custom_collate_fn, device=device, allow_max_length = 1024)
 	
-	num_workers = 0
-	batch_size = 8
-	torch.manual_seed(123)
-	tokenizer = tiktoken.get_encoding("gpt2")
+    num_workers = 0
+    batch_size = 8
+    torch.manual_seed(123)
+    tokenizer = tiktoken.get_encoding("gpt2")
 
-	path = r"/storage/jiangfei/LLM-From-Scratch/dataset/instruction-data.json"
-	with open(path, 'r', encoding='utf-8') as f:
-		data = json.load(f)
-	desired_response = f"\n\n### Response:\n{data[50]['output']}"
+    path = r"/storage/jiangfei/LLM-From-Scratch/dataset/instruction-data.json"
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    desired_response = f"\n\n### Response:\n{data[50]['output']}"
 
-	train_portion = int(len(data) * 0.85)
-	test_portion = int(len(data) * 0.1)
-	val_portion = len(data) - train_portion - test_portion
+    train_portion = int(len(data) * 0.85)
+    test_portion = int(len(data) * 0.1)
+    val_portion = len(data) - train_portion - test_portion
 
-	train_data = data[:train_portion]
-	test_data = data[train_portion:train_portion + test_portion]
-	val_data = data[train_portion + test_portion:]
+    train_data = data[:train_portion]
+    test_data = data[train_portion:train_portion + test_portion]
+    val_data = data[train_portion + test_portion:]
 
-	train_dataset = InstructionDataset(train_data, tokenizer)
-	train_loader = DataLoader(
-		train_dataset,
-		batch_size=batch_size,
-		collate_fn=cunstomized_collate_fn,
-		shuffle=True,
-		drop_last=True,
-		num_workers=num_workers
-	)
+    train_dataset = InstructionDataset(train_data, tokenizer)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=batch_size,
+        collate_fn=cunstomized_collate_fn,
+        shuffle=True,
+        drop_last=True,
+        num_workers=num_workers
+    )
 
-	val_dataset = InstructionDataset(val_data, tokenizer)
-	val_loader = DataLoader(
-		val_dataset,
-		batch_size=batch_size,
-		collate_fn=cunstomized_collate_fn,
-		shuffle=False,
-		drop_last=False,
-		num_workers=num_workers
-	)
+    val_dataset = InstructionDataset(val_data, tokenizer)
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=batch_size,
+        collate_fn=cunstomized_collate_fn,
+        shuffle=False,
+        drop_last=False,
+        num_workers=num_workers
+    )
 
-	test_dataset = InstructionDataset(test_data, tokenizer)
-	test_loader = DataLoader(
-		test_dataset,
-		batch_size=batch_size,
-		collate_fn=cunstomized_collate_fn,
-		shuffle=False,
-		drop_last=False,
-		num_workers=num_workers
-	)
+    test_dataset = InstructionDataset(test_data, tokenizer)
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=batch_size,
+        collate_fn=cunstomized_collate_fn,
+        shuffle=False,
+        drop_last=False,
+        num_workers=num_workers
+    )
 
-	BASE_CONFIG = {
-		"vocab_size": 50257, # Vocabulary size
-		"context_length": 1024, # Context length
-		"drop_rate": 0.0, # Dropout rate
-		"qkv_bias": True # Query-key-value bias
-	}
+    BASE_CONFIG = {
+        "vocab_size": 50257, # Vocabulary size
+        "context_length": 1024, # Context length
+        "drop_rate": 0.0, # Dropout rate
+        "qkv_bias": True # Query-key-value bias
+    }
 
-	model_configs = {
-		"gpt2-small (124M)": {"emb_dim": 768, "n_layers": 12, "n_heads": 12},
-		"gpt2-medium (355M)": {"emb_dim": 1024, "n_layers": 24, "n_heads": 16},
-		"gpt2-large (774M)": {"emb_dim": 1280, "n_layers": 36, "n_heads": 20},
-		"gpt2-xl (1558M)": {"emb_dim": 1600, "n_layers": 48, "n_heads": 25},
-	}	
+    model_configs = {
+        "gpt2-small (124M)": {"emb_dim": 768, "n_layers": 12, "n_heads": 12},
+        "gpt2-medium (355M)": {"emb_dim": 1024, "n_layers": 24, "n_heads": 16},
+        "gpt2-large (774M)": {"emb_dim": 1280, "n_layers": 36, "n_heads": 20},
+        "gpt2-xl (1558M)": {"emb_dim": 1600, "n_layers": 48, "n_heads": 25},
+    }	
 
-	CHOOSE_MODEL = "gpt2-medium (355M)"
-	BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
+    CHOOSE_MODEL = "gpt2-medium (355M)"
+    BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
 
-	model_size = CHOOSE_MODEL.split(" ")[-1].lstrip("(").rstrip(")")
-	settings, params = download_and_load_gpt2(model_size = model_size, models_dir= r"/storage/jiangfei/LLM-From-Scratch/weight")
-	model = GPTmodel(BASE_CONFIG)
-	load_weights_into_gpt(model, params)
+    model_size = CHOOSE_MODEL.split(" ")[-1].lstrip("(").rstrip(")")
+    settings, params = download_and_load_gpt2(model_size = model_size, models_dir= r"/storage/jiangfei/LLM-From-Scratch/weight")
+    model = GPTmodel(BASE_CONFIG)
+    load_weights_into_gpt(model, params)
 
-	model.to(device)
-	with torch.no_grad():
-		train_loss = calc_loss_loader(train_loader, model, device, num_batches=5)
-		val_loss = calc_loss_loader(val_loader, model, device, num_batches=5)
-	print("Training Loss:", train_loss)
-	print("Validation Loss:", val_loss)
+    # 检查是否有多个GPU可用，并使用DataParallel进行包装
+    if torch.cuda.device_count() > 1:
+        print(f"Using {torch.cuda.device_count()} GPUs for SFT training!")
+        # 获取所有可用的GPU ID
+        device_ids = list(range(torch.cuda.device_count()))
+        model = nn.DataParallel(model, device_ids=device_ids)
 
-	start_time = time.time()
-	optimizer = torch.optim.AdamW(model.parameters(), lr=0.00001, weight_decay=0.1)
-	num_epochs = 2
+    model.to(device)
+    with torch.no_grad():
+        train_loss = calc_loss_loader(train_loader, model, device, num_batches=5)
+        val_loss = calc_loss_loader(val_loader, model, device, num_batches=5)
+    print("Training Loss:", train_loss)
+    print("Validation Loss:", val_loss)
 
-	train_losses, val_losses, track_tokens_seen = train_model_simple(
-		model, train_loader, val_loader, optimizer, device,
-		num_epochs=num_epochs, eval_iter=5, start_context=format_input(val_data[0]), tokenizer=tokenizer, eval_freq=5,
+    start_time = time.time()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.00001, weight_decay=0.1)
+    num_epochs = 2
+	
+    # 初始化学习率调度器
+    total_steps = num_epochs * len(train_loader)  # 计算总步数
+    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-6)
+
+    train_losses, val_losses, track_tokens_seen = train_model_simple(
+        model, train_loader, val_loader, optimizer, device,
+        num_epochs=num_epochs, eval_iter=5, start_context=format_input(val_data[0]), tokenizer=tokenizer, eval_freq=5,
+        scheduler=scheduler,  # 传递调度器
         patience=3, min_delta=0.001  # 添加早停参数
-	)
+    )
 
-	end_time = time.time()
-	execution_time = (end_time - start_time) / 60
-	print(f"Training completed in {execution_time:.2f} minutes.")
+    end_time = time.time()
+    execution_time = (end_time - start_time) / 60
+    print(f"Training completed in {execution_time:.2f} minutes.")
 
-	for entry in test_data[:3]:
-		input_text = format_input(entry)
-		token_ids = generate(
-			model = model,
-			idx = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0).to(device),
-			max_new_tokens= 256,
-			context_size = BASE_CONFIG["context_length"],
-			top_p=0.9,
+    for entry in test_data[:3]:
+        input_text = format_input(entry)
+        token_ids = generate(
+            model = model,
+            idx = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0).to(device),
+            max_new_tokens= 256,
+            context_size = BASE_CONFIG["context_length"],
+            top_p=0.9,
             repetition_penalty=1.2,
-			eos_id= 50256
-		)
-		generated_text_str = ids_to_text(token_ids, tokenizer)
-		response_text = generated_text_str[len(input_text):].replace("### Response:","").strip()
-		print(input_text)
-		print(f"\nCorrect response:\n>> {entry['output']}")
-		print(f"\nModel response:\n>> {response_text.strip()}")
-		print("-------------------------------------")
+            eos_id= 50256
+        )
+        generated_text_str = ids_to_text(token_ids, tokenizer)
+        response_text = generated_text_str[len(input_text):].replace("### Response:","").strip()
+        print(input_text)
+        print(f"\nCorrect response:\n>> {entry['output']}")
+        print(f"\nModel response:\n>> {response_text.strip()}")
+        print("-------------------------------------")
