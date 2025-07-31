@@ -172,7 +172,7 @@ if __name__ == "__main__":
     cunstomized_collate_fn = partial(custom_collate_fn, device=device, allow_max_length = 1024)
 	
     num_workers = 0
-    batch_size = 8
+    batch_size = 4
     torch.manual_seed(123)
     tokenizer = tiktoken.get_encoding("gpt2")
 
