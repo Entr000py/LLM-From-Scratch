@@ -214,6 +214,7 @@ if __name__ == "__main__":
 
     model_size = CHOOSE_MODEL.split(" ")[-1].lstrip("(").rstrip(")")
     settings, params = download_and_load_gpt2(model_size = model_size, models_dir= r"/storage/jiangfei/LLM-From-Scratch/weight")
+    print("BASE_CONFIG before GPTmodel initialization:", BASE_CONFIG) # Added for debugging
     model = GPTmodel(BASE_CONFIG)
     load_weights_into_gpt(model, params)
 
