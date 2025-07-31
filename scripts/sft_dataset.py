@@ -244,6 +244,46 @@ if __name__ == "__main__":
     execution_time = (end_time - start_time) / 60
     print(f"Training completed in {execution_time:.2f} minutes.")
 
+    # 添加交互式文本生成功能
+    print("\n模型训练已完成。现在可以输入文本与模型交互。")
+    print("输入 'exit' 退出程序。")
+    
+    while True:
+        try:
+            input_text = input("\n请输入您的文本 (输入 'exit' 退出): ")
+            if input_text.lower() == 'exit':
+                print("退出程序。")
+                break
+            
+            # 将输入文本转换为token ID
+            token_ids = text_to_ids(input_text, tokenizer)
+            input_tensor = torch.tensor(token_ids).unsqueeze(0).to(device)
+            
+            # 使用模型生成文本
+            generated_token_ids = generate(
+                model=model,
+                idx=input_tensor,
+                max_new_tokens=256,
+                context_size=BASE_CONFIG["context_length"],
+                top_p=0.9,
+                repetition_penalty=1.2,
+                eos_id=50256
+            )
+            
+            # 将生成的token ID转换回文本
+            generated_text = ids_to_text(generated_token_ids, tokenizer)
+            
+            # 打印生成的文本（去除输入部分）
+            response_text = generated_text[len(input_text):].strip()
+            print(f"\n模型输出: {response_text}")
+            
+        except KeyboardInterrupt:
+            print("\n\n程序被用户中断。")
+            break
+        except Exception as e:
+            print(f"\n发生错误: {e}")
+            print("请重试。")
+
     # for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
     #     input_text = format_input(entry)
     #     token_ids = generate(
