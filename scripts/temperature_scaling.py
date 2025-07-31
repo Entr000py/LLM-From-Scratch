@@ -38,7 +38,7 @@ def softmax_with_temperature(logits, temperature):
     scaled_logits = logits / temperature
     return torch.softmax(scaled_logits, dim=0)
 
-def generate(model, idx, max_new_tokens, context_size, temperature=1.0, top_k=None, eos_id=None):
+def generate(model, idx, max_new_tokens, context_size, temperature=1.0, top_k=None, top_p=None, repetition_penalty=1.0, eos_id=None):
     """
     使用给定模型生成文本序列
     
@@ -52,6 +52,8 @@ def generate(model, idx, max_new_tokens, context_size, temperature=1.0, top_k=No
                     - temperature = 1: 原始分布
                     - temperature < 1: 更确定性的输出
         top_k: Top-K采样参数，只保留概率最高的K个token
+        top_p: Top-P采样参数，保留累积概率超过P的最小词汇集
+        repetition_penalty: 重复惩罚参数，>1.0惩罚重复，<1.0鼓励重复
         eos_id: 结束符ID，当生成此token时停止生成
         
     Returns:
@@ -69,6 +71,15 @@ def generate(model, idx, max_new_tokens, context_size, temperature=1.0, top_k=No
         # 只取最后一个位置的logits
         logits = logits[:, -1, :]
         
+        # 重复惩罚
+        if repetition_penalty != 1.0:
+            for i in range(logits.shape[0]):
+                for previous_token_id in set(idx[i].tolist()):
+                    if logits[i, previous_token_id] > 0:
+                        logits[i, previous_token_id] /= repetition_penalty
+                    else:
+                        logits[i, previous_token_id] *= repetition_penalty
+                        
         # 如果指定了top_k，则进行top-k过滤
         if top_k is not None:
             # 获取top-k个最大的logits值
@@ -79,6 +90,22 @@ def generate(model, idx, max_new_tokens, context_size, temperature=1.0, top_k=No
                 torch.tensor(float("-inf")).to(logits.device),
                 logits
             )
+        
+        # Top-p (nucleus) 采样
+        if top_p is not None and top_p < 1.0:
+            sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+            cumulative_probs = torch.cumsum(torch.softmax(sorted_logits, dim=-1), dim=-1)
+            
+            # 移除累积概率超过 top_p 的 token
+            sorted_indices_to_remove = cumulative_probs > top_p
+            # 至少保留一个 token
+            sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
+            sorted_indices_to_remove[..., 0] = False
+            
+            # 将要移除的 token 的 logits 设为负无穷
+            for i in range(logits.shape[0]):
+                indices_to_remove = sorted_indices[i][sorted_indices_to_remove[i]]
+                logits[i][indices_to_remove] = float('-inf')
         
         # 根据温度参数调整logits分布
         if temperature > 0.0:
