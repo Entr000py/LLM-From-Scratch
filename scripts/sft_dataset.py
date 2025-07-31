@@ -18,30 +18,6 @@ import time
 from tqdm import tqdm
 
 
-
-def download_and_load_file(file_path, url):
-	"""
-	下载并加载指定URL的文件。如果文件不存在，则从URL下载；否则，直接从本地文件加载。
-	文件内容被解码为UTF-8并解析为JSON。
-
-	Args:
-		file_path (str): 本地文件的路径。
-		url (str): 文件的URL。
-
-	Returns:
-		dict: 解析后的JSON数据。
-	"""
-	if not os.path.exists(file_path):
-		with urllib.request.urlopen(url) as response:
-			text_data = response.read().decode('utf-8')
-		with open(file_path, 'w', encoding = "utf-8") as file:
-			file.write(text_data)
-	else:
-		with open(file_path, 'r', encoding = "utf-8") as file:
-			text_data = file.read()
-	data = json.loads(text_data)
-	return data
-
 def format_input(entry):
 	"""
 	根据给定的条目（entry）格式化输入文本。
@@ -170,7 +146,7 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu"
 
 if __name__ == "__main__":
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    cunstomized_collate_fn = partial(custom_collate_fn, device=device, allow_max_length = 1024)
+    customized_collate_fn = partial(custom_collate_fn, device=device, allow_max_length = 1024)
 	
     num_workers = 0
     batch_size = 4
@@ -180,7 +156,6 @@ if __name__ == "__main__":
     path = r"/storage/jiangfei/LLM-From-Scratch/dataset/instruction-data.json"
     with open(path, 'r', encoding='utf-8') as f:
         data = json.load(f)
-    desired_response = f"\n\n### Response:\n{data[50]['output']}"
 
     train_portion = int(len(data) * 0.85)
     test_portion = int(len(data) * 0.1)
@@ -194,7 +169,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
-        collate_fn=cunstomized_collate_fn,
+        collate_fn=customized_collate_fn,
         shuffle=True,
         drop_last=True,
         num_workers=num_workers
@@ -204,7 +179,7 @@ if __name__ == "__main__":
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,
-        collate_fn=cunstomized_collate_fn,
+        collate_fn=customized_collate_fn,
         shuffle=False,
         drop_last=False,
         num_workers=num_workers
@@ -214,7 +189,7 @@ if __name__ == "__main__":
     test_loader = DataLoader(
         test_dataset,
         batch_size=batch_size,
-        collate_fn=cunstomized_collate_fn,
+        collate_fn=customized_collate_fn,
         shuffle=False,
         drop_last=False,
         num_workers=num_workers
@@ -257,7 +232,7 @@ if __name__ == "__main__":
     total_steps = num_epochs * len(train_loader)  # 计算总步数
     scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-6)
 
-    train_losses, val_losses, track_tokens_seen = train_model_simple(
+    train_losses, val_losses, _ = train_model_simple( # 移除未使用的 track_tokens_seen
         model, train_loader, val_loader, optimizer, device,
         num_epochs=num_epochs, eval_iter=5, start_context=format_input(val_data[0]), tokenizer=tokenizer, eval_freq=5,
         scheduler=scheduler,  # 传递调度器
