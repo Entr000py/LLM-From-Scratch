@@ -226,7 +226,7 @@ if __name__ == "__main__":
     print("Validation Loss:", val_loss)
 
     start_time = time.time()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-6, weight_decay=0.1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=7e-6, weight_decay=0.1)
     num_epochs = 5
 	
     # 初始化学习率调度器
