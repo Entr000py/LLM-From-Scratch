@@ -15,6 +15,7 @@ from generate_text import text_to_ids, ids_to_text
 from train_model import calc_loss_loader, train_model_simple
 import torch.optim.lr_scheduler as lr_scheduler  # 导入学习率调度器
 import time
+from tqdm import tqdm
 
 
 
@@ -241,13 +242,6 @@ if __name__ == "__main__":
     model = GPTmodel(BASE_CONFIG)
     load_weights_into_gpt(model, params)
 
-    # 检查是否有多个GPU可用，并使用DataParallel进行包装
-    if torch.cuda.device_count() > 1:
-        print(f"Using {torch.cuda.device_count()} GPUs for SFT training!")
-        # 获取所有可用的GPU ID
-        device_ids = list(range(torch.cuda.device_count()))
-        model = nn.DataParallel(model, device_ids=device_ids)
-
     model.to(device)
     with torch.no_grad():
         train_loss = calc_loss_loader(train_loader, model, device, num_batches=5)
@@ -274,20 +268,21 @@ if __name__ == "__main__":
     execution_time = (end_time - start_time) / 60
     print(f"Training completed in {execution_time:.2f} minutes.")
 
-    for entry in test_data[:3]:
+    for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
         input_text = format_input(entry)
         token_ids = generate(
-            model = model,
-            idx = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0).to(device),
-            max_new_tokens= 256,
-            context_size = BASE_CONFIG["context_length"],
-            top_p=0.9,
-            repetition_penalty=1.2,
-            eos_id= 50256
+                model = model,
+                idx = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0).to(device),
+                max_new_tokens= 256,
+                context_size = BASE_CONFIG["context_length"],
+                top_p=0.9,
+                repetition_penalty=1.2,
+                eos_id= 50256
         )
         generated_text_str = ids_to_text(token_ids, tokenizer)
-        response_text = generated_text_str[len(input_text):].replace("### Response:","").strip()
-        print(input_text)
-        print(f"\nCorrect response:\n>> {entry['output']}")
-        print(f"\nModel response:\n>> {response_text.strip()}")
-        print("-------------------------------------")
+        response_text = generated_text_str[len(input_text):].replace("### Response:",
+    "").strip()
+        test_data[i]["model_response"] = response_text
+
+    with open("instruction-data-with-response.json", "w") as file:
+        json.dump(test_data, file, indent=4)
