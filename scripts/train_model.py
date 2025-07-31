@@ -6,6 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import logging
 from temperature_scaling import generate
+import torch.optim.lr_scheduler as lr_scheduler
 
 # 配置日志记录
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -79,6 +80,7 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
 # 简单的模型训练函数，带有早停功能
 def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs,
                        eval_freq, eval_iter, start_context, tokenizer,
+                       scheduler=None,  # 添加 scheduler 参数
                        patience=None, min_delta=0.0):
     """
     训练模型的简单函数，包含早停功能。
@@ -121,6 +123,8 @@ def train_model_simple(model, train_loader, val_loader, optimizer, device, num_e
                 loss = loss.mean()
             loss.backward()
             optimizer.step()
+            if scheduler:  # 如果提供了调度器，则更新学习率
+                scheduler.step()
             tokens_seen += input_batch.numel()
             global_step += 1
 
@@ -219,7 +223,9 @@ if __name__ == "__main__":
     
     if torch.cuda.device_count() > 1:
         logging.info(f"Using {torch.cuda.device_count()} GPUs!")
-        model = nn.DataParallel(model, device_ids=[0, 1, 2])
+        # 获取所有可用的GPU ID
+        device_ids = list(range(torch.cuda.device_count()))
+        model = nn.DataParallel(model, device_ids=device_ids)
 
     model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.0004, weight_decay=0.1)
@@ -248,8 +254,10 @@ if __name__ == "__main__":
     )
     logging.info(f"Final generated text: {ids_to_text(token_ids, tokenizer)}")
 
+    # 保存模型时，如果使用了DataParallel，需要保存model.module.state_dict()
+    model_to_save = model.module if hasattr(model, 'module') else model
     torch.save({
-        "model_state_dict": model.state_dict(),
+        "model_state_dict": model_to_save.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
         "config": GPT_CONFIG_124M
         }, 
