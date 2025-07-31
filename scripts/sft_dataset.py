@@ -233,11 +233,12 @@ if __name__ == "__main__":
     total_steps = num_epochs * len(train_loader)  # 计算总步数
     scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-6)
 
-    train_losses, val_losses, _ = train_model_simple( # 移除未使用的 track_tokens_seen
+    train_losses, val_losses, _ = train_model_simple(
         model, train_loader, val_loader, optimizer, device,
         num_epochs=num_epochs, eval_iter=5, start_context=format_input(val_data[0]), tokenizer=tokenizer, eval_freq=5,
-        scheduler=scheduler,  # 传递调度器
-        patience=3, min_delta=0.001  # 添加早停参数
+        scheduler=scheduler,
+        patience=3, min_delta=0.001,
+        max_grad_norm=1.0 # 添加梯度裁剪参数
     )
 
     end_time = time.time()

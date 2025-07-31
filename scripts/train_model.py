@@ -80,8 +80,9 @@ def generate_and_print_sample(model, tokenizer, device, start_context):
 # 简单的模型训练函数，带有早停功能
 def train_model_simple(model, train_loader, val_loader, optimizer, device, num_epochs,
                        eval_freq, eval_iter, start_context, tokenizer,
-                       scheduler=None,  # 添加 scheduler 参数
-                       patience=None, min_delta=0.0):
+                       scheduler=None,
+                       patience=None, min_delta=0.0,
+                       max_grad_norm=None): # 添加梯度裁剪参数
     """
     训练模型的简单函数，包含早停功能。
 
@@ -122,8 +123,10 @@ def train_model_simple(model, train_loader, val_loader, optimizer, device, num_e
             if isinstance(loss, torch.Tensor) and loss.numel() > 1:
                 loss = loss.mean()
             loss.backward()
+            if max_grad_norm is not None: # 添加梯度裁剪
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
             optimizer.step()
-            if scheduler:  # 如果提供了调度器，则更新学习率
+            if scheduler:
                 scheduler.step()
             tokens_seen += input_batch.numel()
             global_step += 1
