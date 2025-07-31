@@ -149,7 +149,7 @@ if __name__ == "__main__":
     customized_collate_fn = partial(custom_collate_fn, device=device, allow_max_length = 1024)
 	
     num_workers = 0
-    batch_size = 4
+    batch_size = 8
     torch.manual_seed(123)
     tokenizer = tiktoken.get_encoding("gpt2")
 
@@ -198,7 +198,7 @@ if __name__ == "__main__":
     BASE_CONFIG = {
         "vocab_size": 50257, # Vocabulary size
         "context_length": 1024, # Context length
-        "drop_rate": 0.0, # Dropout rate
+        "drop_rate": 0.1, # Dropout rate
         "qkv_bias": True # Query-key-value bias
     }
 
@@ -210,7 +210,7 @@ if __name__ == "__main__":
     }	
 
     CHOOSE_MODEL = "gpt2-medium (355M)"
-    # BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
+    BASE_CONFIG.update(model_configs[CHOOSE_MODEL])
 
     model_size = CHOOSE_MODEL.split(" ")[-1].lstrip("(").rstrip(")")
     settings, params = download_and_load_gpt2(model_size = model_size, models_dir= r"/storage/jiangfei/LLM-From-Scratch/weight")
@@ -226,8 +226,8 @@ if __name__ == "__main__":
     print("Validation Loss:", val_loss)
 
     start_time = time.time()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=0.00001, weight_decay=0.1)
-    num_epochs = 2
+    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-6, weight_decay=0.1)
+    num_epochs = 5
 	
     # 初始化学习率调度器
     total_steps = num_epochs * len(train_loader)  # 计算总步数
@@ -244,21 +244,21 @@ if __name__ == "__main__":
     execution_time = (end_time - start_time) / 60
     print(f"Training completed in {execution_time:.2f} minutes.")
 
-    for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
-        input_text = format_input(entry)
-        token_ids = generate(
-                model = model,
-                idx = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0).to(device),
-                max_new_tokens= 256,
-                context_size = BASE_CONFIG["context_length"],
-                top_p=0.9,
-                repetition_penalty=1.2,
-                eos_id= 50256
-        )
-        generated_text_str = ids_to_text(token_ids, tokenizer)
-        response_text = generated_text_str[len(input_text):].replace("### Response:",
-    "").strip()
-        test_data[i]["model_response"] = response_text
+    # for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
+    #     input_text = format_input(entry)
+    #     token_ids = generate(
+    #             model = model,
+    #             idx = torch.tensor(text_to_ids(input_text, tokenizer)).unsqueeze(0).to(device),
+    #             max_new_tokens= 256,
+    #             context_size = BASE_CONFIG["context_length"],
+    #             top_p=0.9,
+    #             repetition_penalty=1.2,
+    #             eos_id= 50256
+    #     )
+    #     generated_text_str = ids_to_text(token_ids, tokenizer)
+    #     response_text = generated_text_str[len(input_text):].replace("### Response:",
+    # "").strip()
+    #     test_data[i]["model_response"] = response_text
 
-    with open("instruction-data-with-response.json", "w") as file:
-        json.dump(test_data, file, indent=4)
+    # with open("instruction-data-with-response.json", "w") as file:
+    #     json.dump(test_data, file, indent=4)
