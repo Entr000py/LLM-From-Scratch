@@ -13,9 +13,10 @@ from gpt_download import download_and_load_gpt2
 from temperature_scaling import generate
 from generate_text import text_to_ids, ids_to_text
 from train_model import calc_loss_loader, train_model_simple
-import torch.optim.lr_scheduler as lr_scheduler  # 导入学习率调度器
+import torch.optim.lr_scheduler as lr_scheduler
 import time
 from tqdm import tqdm
+from transformers import get_cosine_schedule_with_warmup # 导入带预热的余弦退火调度器
 
 
 def format_input(entry):
@@ -226,12 +227,17 @@ if __name__ == "__main__":
     print("Validation Loss:", val_loss)
 
     start_time = time.time()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=7e-6, weight_decay=0.1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=7e-6, weight_decay=0.01)
     num_epochs = 5
 	
     # 初始化学习率调度器
     total_steps = num_epochs * len(train_loader)  # 计算总步数
-    scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=1e-6)
+    num_warmup_steps = int(0.1 * total_steps) # 预热步数设置为总步数的10%
+    scheduler = get_cosine_schedule_with_warmup(
+        optimizer,
+        num_warmup_steps=num_warmup_steps,
+        num_training_steps=total_steps
+    )
 
     train_losses, val_losses, _ = train_model_simple(
         model, train_loader, val_loader, optimizer, device,
