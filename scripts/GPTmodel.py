@@ -2,6 +2,7 @@ from transformer import TransformerBlock
 import torch
 import torch.nn as nn
 import tiktoken
+import math
 
 GPT_CONFIG_124M = {
     "vocab_size": 50257,    # Vocabulary size
@@ -53,6 +54,80 @@ class GPTmodel(nn.Module):
         # 通过输出层得到logits
         logits = self.out_head(x)
         return logits
+
+class LoRALayer(nn.Module):
+    def __init__(self, in_dim, out_dim, rank, alpha):
+        """
+        LoRA（Low-Rank Adaptation）层，用于高效微调大型模型。
+        通过低秩分解来近似原始权重矩阵的更新。
+
+        参数:
+            in_dim (int): 输入维度。
+            out_dim (int): 输出维度。
+            rank (int): LoRA的秩，决定了可学习参数的数量。
+            alpha (float): 缩放因子，用于调整LoRA层的输出对原始模型的影响。
+        """
+        super().__init__()
+        self.A = nn.Parameter(torch.empty(in_dim, rank))
+        nn.init.kaiming_uniform_(self.A, a=math.sqrt(5))
+        self.B = nn.Parameter(torch.zeros(rank, out_dim))   #训练开始时，LoRA 层的输出是零，不会对原始预训练模型的行为产生干扰。
+        self.alpha = alpha
+
+    def forward(self, x):
+        """
+        LoRA层的前向传播。
+
+        参数:
+            x (torch.Tensor): 输入张量。
+
+        返回:
+            torch.Tensor: 经过LoRA层处理后的输出张量。
+        """
+        x = self.alpha * (x @ self.A @ self.B)
+        return x
+
+class LinerWithLoRA(nn.Module):
+    def __init__(self, liner, rank, alpha):
+        """
+        将LoRA层集成到现有的线性层中。
+        在原始线性层的输出上叠加LoRA层的输出。
+
+        参数:
+            liner (nn.Linear): 原始的线性层。
+            rank (int): LoRA的秩。
+            alpha (float): LoRA的缩放因子。
+        """
+        super().__init__()
+        self.liner = liner
+        self.lora = LoRALayer(liner.in_features, liner.out_features, rank, alpha)
+
+    def forward(self, x):
+        """
+        带有LoRA的线性层的前向传播。
+
+        参数:
+            x (torch.Tensor): 输入张量。
+
+        返回:
+            torch.Tensor: 原始线性层输出与LoRA层输出之和。
+        """
+        return self.liner(x) + self.lora(x)
+
+def replace_liner_with_lora(model, rank, alpha):
+    """
+    递归地遍历模型的所有子模块，将所有nn.Linear层替换为LinerWithLoRA层。
+
+    参数:
+        model (nn.Module): 要修改的模型。
+        rank (int): LoRA的秩。
+        alpha (float): LoRA的缩放因子。
+    """
+    for name, module in model.named_children():
+        if isinstance(module, nn.Linear):
+            setattr(model, name, LinerWithLoRA(module, rank, alpha))
+        else:
+            replace_liner_with_lora(module, rank, alpha)    #递归应用于子模块
+
 
 def generate_text_simple(model, idx, max_new_tokens, context_size, temperature=1.0, top_k=None):
     """

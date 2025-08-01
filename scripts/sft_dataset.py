@@ -7,7 +7,7 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.nn as nn
 import tiktoken
 from functools import partial
-from GPTmodel import GPTmodel
+from GPTmodel import GPTmodel,replace_liner_with_lora
 from pytorch_dataset import load_weights_into_gpt
 from gpt_download import download_and_load_gpt2
 from temperature_scaling import generate
@@ -219,12 +219,11 @@ if __name__ == "__main__":
     model = GPTmodel(BASE_CONFIG)
     load_weights_into_gpt(model, params)
 
+    #LoRA
+    replace_liner_with_lora(model, rank = 16, alpha = 16)
+
     model.to(device)
-    with torch.no_grad():
-        train_loss = calc_loss_loader(train_loader, model, device, num_batches=5)
-        val_loss = calc_loss_loader(val_loader, model, device, num_batches=5)
-    print("Training Loss:", train_loss)
-    print("Validation Loss:", val_loss)
+    print("Model Information:", model)
 
     start_time = time.time()
     optimizer = torch.optim.AdamW(model.parameters(), lr=7e-6, weight_decay=0.01)
@@ -236,7 +235,7 @@ if __name__ == "__main__":
     scheduler = get_cosine_schedule_with_warmup(
         optimizer,
         num_warmup_steps=num_warmup_steps,
-        num_training_steps=total_steps
+        num_training_steps=total_steps 
     )
 
     train_losses, val_losses, _ = train_model_simple(
