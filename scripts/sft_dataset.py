@@ -220,14 +220,14 @@ if __name__ == "__main__":
     load_weights_into_gpt(model, params)
 
     #LoRA
-    replace_liner_with_lora(model, rank = 16, alpha = 16)
+    replace_liner_with_lora(model, rank = 32, alpha = 64)
 
     model.to(device)
-    print("Model Information:", model)
+    # print("Model Information:", model)
 
     start_time = time.time()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=7e-6, weight_decay=0.01)
-    num_epochs = 5
+    optimizer = torch.optim.AdamW(model.parameters(), lr=7e-6, weight_decay=0.05)
+    num_epochs = 3
 	
     # 初始化学习率调度器
     total_steps = num_epochs * len(train_loader)  # 计算总步数
@@ -251,44 +251,44 @@ if __name__ == "__main__":
     print(f"Training completed in {execution_time:.2f} minutes.")
 
     # 添加交互式文本生成功能
-    print("\n模型训练已完成。现在可以输入文本与模型交互。")
-    print("输入 'exit' 退出程序。")
+    # print("\n模型训练已完成。现在可以输入文本与模型交互。")
+    # print("输入 'exit' 退出程序。")
     
-    while True:
-        try:
-            input_text = input("\n请输入您的文本 (输入 'exit' 退出): ")
-            if input_text.lower() == 'exit':
-                print("退出程序。")
-                break
+    # while True:
+    #     try:
+    #         input_text = input("\n请输入您的文本 (输入 'exit' 退出): ")
+    #         if input_text.lower() == 'exit':
+    #             print("退出程序。")
+    #             break
             
-            # 将输入文本转换为token ID
-            token_ids = text_to_ids(input_text, tokenizer)
-            input_tensor = torch.tensor(token_ids).unsqueeze(0).to(device)
+    #         # 将输入文本转换为token ID
+    #         token_ids = text_to_ids(input_text, tokenizer)
+    #         input_tensor = torch.tensor(token_ids).unsqueeze(0).to(device)
             
-            # 使用模型生成文本
-            generated_token_ids = generate(
-                model=model,
-                idx=input_tensor,
-                max_new_tokens=256,
-                context_size=BASE_CONFIG["context_length"],
-                top_p=0.9,
-                repetition_penalty=1.2,
-                eos_id=50256
-            )
+    #         # 使用模型生成文本
+    #         generated_token_ids = generate(
+    #             model=model,
+    #             idx=input_tensor,
+    #             max_new_tokens=256,
+    #             context_size=BASE_CONFIG["context_length"],
+    #             top_p=0.9,
+    #             repetition_penalty=1.2,
+    #             eos_id=50256
+    #         )
             
-            # 将生成的token ID转换回文本
-            generated_text = ids_to_text(generated_token_ids, tokenizer)
+    #         # 将生成的token ID转换回文本
+    #         generated_text = ids_to_text(generated_token_ids, tokenizer)
             
-            # 打印生成的文本（去除输入部分）
-            response_text = generated_text[len(input_text):].strip()
-            print(f"\n模型输出: {response_text}")
+    #         # 打印生成的文本（去除输入部分）
+    #         response_text = generated_text[len(input_text):].strip()
+    #         print(f"\n模型输出: {response_text}")
             
-        except KeyboardInterrupt:
-            print("\n\n程序被用户中断。")
-            break
-        except Exception as e:
-            print(f"\n发生错误: {e}")
-            print("请重试。")
+    #     except KeyboardInterrupt:
+    #         print("\n\n程序被用户中断。")
+    #         break
+    #     except Exception as e:
+    #         print(f"\n发生错误: {e}")
+    #         print("请重试。")
 
     # for i, entry in tqdm(enumerate(test_data), total=len(test_data)):
     #     input_text = format_input(entry)
