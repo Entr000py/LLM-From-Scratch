@@ -27,3 +27,4 @@ dataset/
 *.pth
 *.filepart
 *.png
+*.pdf
