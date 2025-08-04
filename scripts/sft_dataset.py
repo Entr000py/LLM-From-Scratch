@@ -31,67 +31,32 @@ def format_input(entry):
 		str: 格式化后的输入文本。
 	"""
 	instruction_text = (
-		"Below is an instruction that describes a task. "
-        "Write a response that appropriately completes the request."
+		f"Below is an instruction that describes a task. "
+        f"Write a response that appropriately completes the request."
         f"\n\n### Instruction:\n{entry['instruction']}"
 	)
 	input_text = f"\n\n### Input:\n{entry['input']}" if entry["input"] else ""
 	return instruction_text + input_text
 
 class InstructionDataset(Dataset):
-	"""
-	用于处理指令数据集的PyTorch Dataset类。
-	它将指令、输入和响应组合成完整的文本，并使用tokenizer进行编码。
-	"""
-	def __init__(self, data, tokenizer):
-		"""
-		初始化InstructionDataset。
+    def __init__(self, data, tokenizer):
+        self.data = data
 
-		Args:
-			data (list): 包含指令、输入和输出的字典列表。
-			tokenizer: 用于编码文本的tokenizer。
-		"""
-		self.data = data
-		self.encoded_texts = []
-		self.prompt_lens = []
-		# 获取EOS token的ID，对于GPT-2是50256
-		eos_token_id = tokenizer.eot_token
-		for entry in data:
-			instruction_plus_input = format_input(entry)
-			response_text = f"\n\n### Response:\n{entry['output']}"
-			full_text = instruction_plus_input + response_text
-			
-			# 编码文本并手动添加EOS token
-			encoded = tokenizer.encode(full_text)
-			encoded.append(eos_token_id)
-			self.encoded_texts.append(encoded)
+        # Pre-tokenize texts
+        self.encoded_texts = []
+        for entry in data:
+            instruction_plus_input = format_input(entry)
+            response_text = f"\n\n### Response:\n{entry['output']}"
+            full_text = instruction_plus_input + response_text
+            self.encoded_texts.append(
+                tokenizer.encode(full_text)
+            )
 
-			# 计算并存储prompt_len
-			prompt_encoded = tokenizer.encode(instruction_plus_input)
-			self.prompt_lens.append(len(prompt_encoded))
-	def __len__(self):
-		"""
-		返回数据集中条目的数量。
+    def __getitem__(self, index):
+        return self.encoded_texts[index]
 
-		Returns:
-			int: 数据集中的条目数量。
-		"""
-		return len(self.data)
-
-	def __getitem__(self, index):
-		"""
-		根据索引返回编码后的文本。
-
-		Args:
-			index (int): 要检索的条目的索引。
-
-		Returns:
-			dict: 包含 'encoded' (torch.Tensor) 和 'prompt_len' (int) 的字典。
-		"""
-		return {
-			'encoded': torch.tensor(self.encoded_texts[index], dtype=torch.long),
-			'prompt_len': self.prompt_lens[index]
-		}
+    def __len__(self):
+        return len(self.data)
 
 def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu", allow_max_length=None):
     """
@@ -109,40 +74,43 @@ def custom_collate_fn(batch, pad_token_id=50256, ignore_index=-100, device="cpu"
     Returns:
         tuple: 包含输入张量 (inputs) 和目标张量 (targets) 的元组。
     """
-    # 从批次中提取编码文本和提示长度
-    # 检查 batch 中的 item 是字典还是列表/元组
-    if isinstance(batch[0], dict):
-        encoded_items = [item['encoded'] for item in batch]
-        prompt_lens = [item['prompt_len'] for item in batch]
-    else:
-        # 假设 item 是一个列表或元组，形式为 [encoded_tensor, prompt_len]
-        encoded_items = [item[0] for item in batch]
-        prompt_lens = [item[1] for item in batch]
+    # Find the longest sequence in the batch
+    batch_max_length = max(len(item)+1 for item in batch)
 
-    # 1. 如果指定了最大长度，首先对所有序列进行截断
-    if allow_max_length is not None:
-        encoded_items = [item[:allow_max_length] for item in encoded_items]
+    # Pad and prepare inputs and targets
+    inputs_lst, targets_lst = [], []
 
-    # 2. 使用 pad_sequence 对所有序列进行填充，使它们达到相同的长度
-    # pad_sequence 需要序列是 Tensor 列表，并且填充到批次中最长序列的长度
-    padded_tensor = pad_sequence(encoded_items, batch_first=True, padding_value=pad_token_id)
+    for item in batch:
+        new_item = item.copy()
+        # Add an <|endoftext|> token
+        new_item += [pad_token_id]
+        # Pad sequences to max_length
+        padded = (
+            new_item + [pad_token_id] *
+            (batch_max_length - len(new_item))
+        )
+        inputs = torch.tensor(padded[:-1])  # Truncate the last token for inputs
+        targets = torch.tensor(padded[1:])  # Shift +1 to the right for targets
 
-    # 4. 创建输入和目标
-    inputs = padded_tensor[:, :-1].contiguous()
-    targets = padded_tensor[:, 1:].contiguous()
+        # New: Replace all but the first padding tokens in targets by ignore_index
+        mask = targets == pad_token_id
+        indices = torch.nonzero(mask).squeeze()
+        if indices.numel() > 1:
+            targets[indices[1:]] = ignore_index
 
-    # 5. 创建损失掩码
-    for i, prompt_len in enumerate(prompt_lens):
-        # 确保掩码长度不超过目标张量的实际长度
-        mask_len = min(prompt_len - 1, inputs.shape[1])
-        if mask_len > 0:
-            targets[i, :mask_len] = ignore_index
-    
-    # 屏蔽所有填充部分的token
-    targets[targets == pad_token_id] = ignore_index
+        # New: Optionally truncate to maximum sequence length
+        if allow_max_length is not None:
+            inputs = inputs[:allow_max_length]
+            targets = targets[:allow_max_length]
 
-    # 6. 将张量移动到指定设备
-    return inputs.to(device), targets.to(device)
+        inputs_lst.append(inputs)
+        targets_lst.append(targets)
+
+    # Convert list of inputs and targets to tensors and transfer to target device
+    inputs_tensor = torch.stack(inputs_lst).to(device)
+    targets_tensor = torch.stack(targets_lst).to(device)
+
+    return inputs_tensor, targets_tensor
 
 
 if __name__ == "__main__":
@@ -220,13 +188,13 @@ if __name__ == "__main__":
     load_weights_into_gpt(model, params)
 
     #LoRA
-    replace_liner_with_lora(model, rank = 32, alpha = 64)
+    # replace_liner_with_lora(model, rank = 16, alpha = 32)
 
     model.to(device)
     # print("Model Information:", model)
 
     start_time = time.time()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=7e-6, weight_decay=0.05)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=5e-5, weight_decay=0.1)
     num_epochs = 3
 	
     # 初始化学习率调度器
@@ -242,7 +210,7 @@ if __name__ == "__main__":
         model, train_loader, val_loader, optimizer, device,
         num_epochs=num_epochs, eval_iter=5, start_context=format_input(val_data[0]), tokenizer=tokenizer, eval_freq=5,
         scheduler=scheduler,
-        patience=3, min_delta=0.001,
+        patience=7, min_delta=0.001,
         max_grad_norm=1.0 # 添加梯度裁剪参数
     )
 
